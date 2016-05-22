@@ -1,0 +1,899 @@
+diff -u netinet.orig/ip_output.c netinet/ip_output.c
+--- netinet.orig/ip_output.c	Mon Mar 12 07:18:00 2001
++++ netinet/ip_output.c	Mon Sep  3 20:59:01 2001
+@@ -41,6 +41,7 @@
+ #include "opt_ipdivert.h"
+ #include "opt_ipfilter.h"
+ #include "opt_ipsec.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -111,6 +112,9 @@
+ 
+ extern	struct protosw inetsw[];
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
+ /*
+  * IP output.  The packet in mbuf chain m contains a skeletal IP
+  * header (with len, off, ttl, proto, tos, src, dst).
+@@ -208,7 +212,22 @@
+ 	if ((flags & (IP_FORWARDING|IP_RAWOUTPUT)) == 0) {
+ 		ip->ip_vhl = IP_MAKE_VHL(IPVERSION, hlen >> 2);
+ 		ip->ip_off &= IP_DF;
++#ifdef TCP_EMUOS
++#ifndef TCP_EMU_WINDOWS
++#define TCP_EMU_WINDOWS 0x03
++#endif
++#ifndef TCP_EMU_CISCO
++#define TCP_EMU_CISCO	0x05
++#endif
++		if (emu_kind == TCP_EMU_WINDOWS){
++			ip->ip_id = htons(ip_id);
++			ip_id += 256;
++		}
++		else 
++			ip->ip_id = htons(ip_id++);
++#else
+ 		ip->ip_id = htons(ip_id++);
++#endif
+ 		ipstat.ips_localout++;
+ 	} else {
+ 		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
+diff -u netinet.orig/tcp_input.c netinet/tcp_input.c
+--- netinet.orig/tcp_input.c	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_input.c	Tue Sep  4 03:50:21 2001
+@@ -39,6 +39,7 @@
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
+ #include "opt_tcp_input.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -138,6 +139,12 @@
+     &restrict_rst, 0, "Restrict RST emission");
+ #endif
+ 
++#ifdef TCP_EMUOS
++int emu_kind = 0;
++SYSCTL_INT(_net_inet_tcp, OID_AUTO, emu_kind, CTLFLAG_RW,
++    &emu_kind, 0, "Emulate another kind of tcp stacks");
++#endif
++
+ struct inpcbhead tcb;
+ #define	tcb6	tcb  /* for KAME src sync over BSD*'s */
+ struct inpcbinfo tcbinfo;
+@@ -532,6 +539,29 @@
+ 	drop_hdrlen = off0 + off;
+ 
+ 	/*
++	 * For emulate os.
++	 */
++#ifdef TCP_EMUOS
++	/* against null scan */
++	if (thflags == 0){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++		case TCP_EMU_WINDOWS:
++		case TCP_EMU_WIN2K:
++		case TCP_EMU_CISCO:
++			goto dropwithreset;
++			break;
++		default:
++		}
++	}
++
++	/* against xmass scan */
++	if (thflags == (TH_FIN|TH_PUSH|TH_URG) &&
++		(emu_kind == TCP_EMU_WINDOWS || emu_kind == TCP_EMU_WIN2K))
++		goto dropwithreset;
++#endif
++
++	/*
+ 	 * Locate pcb for segment.
+ 	 */
+ findpcb:
+@@ -656,6 +686,7 @@
+ 		rstreason = BANDLIM_RST_CLOSEDPORT;
+ 		goto dropwithreset;
+ 	}
++
+ 	if (tp->t_state == TCPS_CLOSED)
+ 		goto drop;
+ 
+@@ -1118,7 +1149,20 @@
+ 		if (iss)
+ 			tp->iss = iss;
+ 		else {
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++			switch(emu_kind){
++			case TCP_EMU_NETBSD:
++			case TCP_EMU_WINDOWS:
++			case TCP_EMU_WIN2K:
++			case TCP_EMU_CISCO:
++				tcp_iss = tcp_new_iss(tp, 
++						sizeof(struct tcpcb), tcp_iss);
++				tp->iss = tcp_iss;
++				break;
++			default:
++				tp->iss = tcp_rndiss_next();
++			}
++#elif defined(TCP_COMPAT_42)
+ 			tcp_iss += TCP_ISSINCR/2;
+ 			tp->iss = tcp_iss;
+ #else
+@@ -1655,7 +1699,19 @@
+ 			if (thflags & TH_SYN &&
+ 			    tp->t_state == TCPS_TIME_WAIT &&
+ 			    SEQ_GT(th->th_seq, tp->rcv_nxt)) {
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++	case TCP_EMU_WIN2K:
++	case TCP_EMU_CISCO:
++		iss = tcp_new_iss(tp, sizeof(struct tcpcb), tp->snd_nxt);
++		break;
++	default:
++		iss = tcp_rndiss_next();
++	}
++
++#elif defined(TCP_COMPAT_42)
+ 				iss = tp->snd_nxt + TCP_ISSINCR;
+ #else
+ 				iss = tcp_rndiss_next();
+@@ -2331,6 +2387,31 @@
+ 		tcp_trace(TA_DROP, ostate, tp, (void *)tcp_saveipgen,
+ 			  &tcp_savetcp, 0);
+ #endif
++
++#ifdef TCP_EMUOS
++	/* T2: accepts NULL segments to openport */
++	if (thflags == 0){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++		case TCP_EMU_CISCO:
++			tcp_respond(tp, mtod(m, void *), th, m, th->th_seq,
++					(tcp_seq)0, TH_RST|TH_ACK);
++			break;
++		case TCP_EMU_WINDOWS:
++		case TCP_EMU_WIN2K:
++			tcp_respond(tp, mtod(m, void *), th, m, th->th_seq,
++					th->th_ack, TH_RST|TH_ACK);
++			break;
++		default:
++		}
++	}
++	/* T7: when windows accepts FIN|URG|PSH to openport */
++	else if (thflags == (TH_FIN|TH_PUSH|TH_URG) &&
++		(emu_kind == TCP_EMU_WINDOWS || emu_kind == TCP_EMU_WIN2K))
++			tcp_respond(tp, mtod(m, void *), th, m, (th->th_seq)+1,
++					(tcp_seq)0, TH_RST|TH_ACK);
++	else
++#endif
+ 	if (thflags & TH_ACK)
+ 		/* mtod() below is safe as long as hdr dropping is delayed */
+ 		tcp_respond(tp, mtod(m, void *), th, m, (tcp_seq)0, th->th_ack,
+@@ -2397,6 +2478,10 @@
+ 				continue;
+ 			bcopy((char *) cp + 2, (char *) &mss, sizeof(mss));
+ 			NTOHS(mss);
++#ifdef	TCP_EMUOS
++			tp->withmaxseg = 1;
++			tp->afterseg = 0;
++#endif
+ 			break;
+ 
+ 		case TCPOPT_WINDOW:
+@@ -2406,6 +2491,14 @@
+ 				continue;
+ 			tp->t_flags |= TF_RCVD_SCALE;
+ 			tp->requested_s_scale = min(cp[2], TCP_MAX_WINSHIFT);
++
++#ifdef	TCP_EMUOS
++			if (cp[2] == 10 && tp->maybenmap == 0)
++				tp->maybenmap = 1;
++			else if (cp[2] == 0 && tp->maybecraft == 0)
++				tp->maybecraft = 1;
++#endif
++
+ 			break;
+ 
+ 		case TCPOPT_TIMESTAMP:
+@@ -2468,6 +2561,18 @@
+ 			    (char *)&to->to_ccecho, sizeof(to->to_ccecho));
+ 			NTOHL(to->to_ccecho);
+ 			break;
++
++#ifdef TCP_EMUOS
++		case TCPOPT_SACK_PERMITTED:
++			/*
++			if (optlen != TCPOLEN_SACK_PERMITTED)
++				continue;
++			*/
++			if (th->th_flags & TH_SYN){
++				tp->sackok = 1;
++			}
++			break;
++#endif
+ 		}
+ 	}
+ 	if (th->th_flags & TH_SYN)
+diff -u netinet.orig/tcp_output.c netinet/tcp_output.c
+--- netinet.orig/tcp_output.c	Mon Mar  5 22:09:03 2001
++++ netinet/tcp_output.c	Tue Sep  4 13:40:19 2001
+@@ -37,6 +37,7 @@
+ #include "opt_inet6.h"
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -81,6 +82,10 @@
+ extern struct mbuf *m_copypack();
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ static int path_mtu_discovery = 1;
+ SYSCTL_INT(_net_inet_tcp, OID_AUTO, path_mtu_discovery, CTLFLAG_RW,
+ 	&path_mtu_discovery, 1, "Enable Path MTU Discovery");
+@@ -96,6 +101,7 @@
+ int     tcp_do_newreno = 1;
+ SYSCTL_INT(_net_inet_tcp, OID_AUTO, newreno, CTLFLAG_RW, &tcp_do_newreno,
+         0, "Enable NewReno Algorithms");
++
+ /*
+  * Tcp output routine: figure out what should be sent and send it.
+  */
+@@ -119,6 +125,10 @@
+ 	int maxburst = TCP_MAXBURST;
+ 	struct rmxp_tao *taop;
+ 	struct rmxp_tao tao_noncached;
++#ifdef TCP_EMUOS
++	u_short defwin = 0;
++#endif
++
+ #ifdef INET6
+ 	int isipv6;
+ #endif
+@@ -407,6 +417,23 @@
+ 		}
+  	}
+ 
++#ifdef	TCP_EMUOS
++	if (emu_kind == TCP_EMU_WIN2K || emu_kind == TCP_EMU_WINDOWS){
++		if (tp->sackok == 1 && flags & TH_SYN){
++			opt[optlen++] = TCPOPT_NOP;
++			opt[optlen++] = TCPOPT_NOP;
++			opt[optlen++] = TCPOPT_SACK_PERMITTED;
++			opt[optlen++] = TCPOLEN_SACK_PERMITTED;
++		}
++		else if (flags == TH_SYN){
++			opt[optlen++] = TCPOPT_NOP;
++			opt[optlen++] = TCPOPT_NOP;
++			opt[optlen++] = TCPOPT_SACK_PERMITTED;
++			opt[optlen++] = TCPOLEN_SACK_PERMITTED;
++		}	
++	}
++#endif
++
+  	/*
+ 	 * Send a timestamp and echo-reply if this is a SYN and our side
+ 	 * wants to use timestamps (TF_REQ_TSTMP is set) or both our side
+@@ -419,9 +446,23 @@
+ 		u_int32_t *lp = (u_int32_t *)(opt + optlen);
+ 
+  		/* Form timestamp option as shown in appendix A of RFC 1323. */
++
++#ifdef TCP_EMUOS
++		if (emu_kind == TCP_EMU_WINDOWS || emu_kind == TCP_EMU_WIN2K){
++			*lp++ = htonl(TCPOPT_TSTAMP_HDR);
++			*lp++ = 0;
++			*lp = 0;
++		}
++		else {
++	 		*lp++ = htonl(TCPOPT_TSTAMP_HDR);
++ 			*lp++ = htonl(ticks);
++ 			*lp   = htonl(tp->ts_recent);
++		}
++#elif
+  		*lp++ = htonl(TCPOPT_TSTAMP_HDR);
+  		*lp++ = htonl(ticks);
+  		*lp   = htonl(tp->ts_recent);
++#endif
+  		optlen += TCPOLEN_TSTAMP_APPA;
+  	}
+ 
+@@ -696,6 +737,96 @@
+ 	if (win > (long)TCP_MAXWIN << tp->rcv_scale)
+ 		win = (long)TCP_MAXWIN << tp->rcv_scale;
+ 	th->th_win = htons((u_short) (win>>tp->rcv_scale));
++
++#ifdef TCP_EMUOS
++	/* set window size */
++	if(th->th_flags == (TH_SYN|TH_ACK)){
++		if(tp->withmaxseg == 1){
++			switch(emu_kind){
++			case TCP_EMU_FREEBSD:
++				defwin = 0x402E;
++				break;
++			case TCP_EMU_NETBSD:
++				defwin = 0x4000;
++				break;
++			case TCP_EMU_WINDOWS:
++				if (tp->maybenmap == 1)
++					defwin = 0x2017;
++				else if (tp->maybecraft == 1)
++					defwin = 0x2238;
++				else
++					defwin = 0x2000;
++				break;
++			case TCP_EMU_WIN2K:
++				if (tp->maybenmap == 1)
++					defwin = 0x402E;
++				else 
++					defwin = 0x4470;
++				break;
++			case TCP_EMU_CISCO:
++				defwin = 0x1020;
++				break;
++			default:
++			}
++			tp->withmaxseg = 0;
++			tp->afterseg = 1;
++		}
++		else {
++			switch(emu_kind){
++			case TCP_EMU_FREEBSD:
++				defwin = 0x4000;
++				break;
++			case TCP_EMU_NETBSD:
++				defwin = 0x4000;
++				break;
++			case TCP_EMU_WINDOWS:
++				defwin = 0x2000;
++				break;
++			case TCP_EMU_WIN2K:
++				if (tp->maybenmap == 1)
++					defwin = 0x402E;
++				else 
++					defwin = 0x4470;
++				break;
++			case TCP_EMU_CISCO:
++				defwin = 0x1020;
++				break;
++			default:
++			}
++		}
++	}
++	else if(th->th_flags & TH_ACK &&
++			tp->afterseg == 1)
++	{
++		switch(emu_kind){
++		case TCP_EMU_WINDOWS:
++			defwin = 0x219D;
++			break;
++		default:
++		}
++	}
++	if(th->th_flags == TH_SYN){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++			defwin = 0x4000;
++			break;
++		case TCP_EMU_WINDOWS:
++			defwin = 0x2000;
++			break;
++		case TCP_EMU_WIN2K:
++			defwin = 0x4000;
++			break;
++		case TCP_EMU_CISCO:
++			defwin = 0x1020;
++		default:
++		}
++	}
++
++	if(defwin > 0 && emu_kind != TCP_EMU_FREEBSD)
++			th->th_win = htons((u_short)defwin);
++	
++#endif
++
+ 	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
+ 		th->th_urp = htons((u_short)(tp->snd_up - tp->snd_nxt));
+ 		th->th_flags |= TH_URG;
+@@ -849,7 +980,14 @@
+ 	 *	2) the MTU is not locked (if it is, then discovery has been
+ 	 *	   disabled)
+ 	 */
+-	if (path_mtu_discovery
++	if (
++#ifdef TCP_EMUOS
++	(emu_kind == TCP_EMU_WINDOWS || emu_kind == TCP_EMU_FREEBSD || 
++	 emu_kind == TCP_EMU_WIN2K ||
++	(emu_kind == 0 && path_mtu_discovery))
++#else
++	path_mtu_discovery
++#endif
+ 	    && (rt = tp->t_inpcb->inp_route.ro_rt)
+ 	    && rt->rt_flags & RTF_UP
+ 	    && !(rt->rt_rmx.rmx_locks & RTV_MTU)) {
+diff -u netinet.orig/tcp_seq.h netinet/tcp_seq.h
+--- netinet.orig/tcp_seq.h	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_seq.h	Tue May 29 04:20:05 2001
+@@ -81,7 +81,7 @@
+ #ifdef _KERNEL
+ extern tcp_cc	tcp_ccgen;		/* global connection count */
+ 
+-#ifdef TCP_COMPAT_42
++#if (defined(TCP_COMPAT_42) || defined(TCP_EMUOS))
+ /*
+  * Increment for tcp_iss each second.
+  * This is designed to increment at the standard 250 KB/s,
+@@ -97,6 +97,13 @@
+ #define	TCP_ISSINCR	(122*1024 + tcp_random18())
+ 
+ extern tcp_seq	tcp_iss;		/* tcp initial send seq # */
++
++#ifdef TCP_EMUOS
++#define	TCP_EMU_ISSINCR		0x01000000
++#define	TCP_ISS_RANDOM_MASK	0x00ffffff
++extern tcp_seq	tcp_iss_seq;		/* tcp_initial send seq #+ */
++#endif
++
+ #endif /* TCP_COMPAT_42 */
+ #else
+ #define	TCP_ISSINCR	(250*1024)	/* increment for tcp_iss each second */
+diff -u netinet.orig/tcp_subr.c netinet/tcp_subr.c
+--- netinet.orig/tcp_subr.c	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_subr.c	Mon Sep  3 21:06:51 2001
+@@ -38,6 +38,7 @@
+ #include "opt_inet6.h"
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -142,6 +143,10 @@
+ static void	tcp_cleartaocache __P((void));
+ static void	tcp_notify __P((struct inpcb *, int));
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ /*
+  * Target size of TCP PCB hash tables. Must be a power of two.
+  *
+@@ -177,14 +182,23 @@
+ /*
+  * Tcp initialization
+  */
++
++struct timeval iss_ltime, iss_ntime;
++
+ void
+ tcp_init()
+ {
+ 	int hashsize;
+-	
++
++#ifdef TCP_EMUOS
++	getmicrotime(&iss_ltime);
++	tcp_iss = arc4random() & 0x001fffff;
++#else
++
+ #ifdef TCP_COMPAT_42
+ 	tcp_iss = 1;		/* wrong */
+ #endif /* TCP_COMPAT_42 */
++#endif
+ 	tcp_ccgen = 1;
+ 	tcp_cleartaocache();
+ 
+@@ -412,7 +426,22 @@
+       {
+ 	tlen += sizeof (struct tcpiphdr);
+ 	ip->ip_len = tlen;
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++		case TCP_EMU_WINDOWS:
++		case TCP_EMU_WIN2K:
++			ip->ip_ttl = 128;
++			break;
++		case TCP_EMU_CISCO:
++			ip->ip_ttl = 255;
++			break;
++		default:
++			ip->ip_ttl = 64;
++			break;
++	}
++#else
+ 	ip->ip_ttl = ip_defttl;
++#endif
+       }
+ 	m->m_len = tlen;
+ 	m->m_pkthdr.len = tlen;
+@@ -503,7 +532,11 @@
+ 	callout_init(tp->tt_2msl = &it->inp_tp_2msl);
+ 	callout_init(tp->tt_delack = &it->inp_tp_delack);
+ 
+-	if (tcp_do_rfc1323)
++	if (tcp_do_rfc1323
++#ifdef TCP_EMUOS
++		|| emu_kind == TCP_EMU_NETBSD || emu_kind == TCP_EMU_WIN2K
++#endif
++	)
+ 		tp->t_flags = (TF_REQ_SCALE|TF_REQ_TSTMP);
+ 	if (tcp_do_rfc1644)
+ 		tp->t_flags |= TF_REQ_CC;
+@@ -525,7 +558,28 @@
+ 	 * because the socket may be bound to an IPv6 wildcard address,
+ 	 * which may match an IPv4-mapped IPv6 address.
+ 	 */
++#ifdef TCP_EMUOS
++/*
++	if(emu_kind == TCP_EMU_WINDOWS || emu_kind == TCP_EMU_WIN2K)
++		inp->inp_ip_ttl = 128;
++	else
++		inp->inp_ip_ttl = 64;
++*/
++	switch(emu_kind){
++		case TCP_EMU_WINDOWS:
++		case TCP_EMU_WIN2K:
++			inp->inp_ip_ttl = 128;
++			break;
++		case TCP_EMU_CISCO:
++			inp->inp_ip_ttl = 255;
++			break;
++		default:
++			inp->inp_ip_ttl = 64;
++			break;
++	}
++#else
+ 	inp->inp_ip_ttl = ip_defttl;
++#endif
+ 	inp->inp_ppcb = (caddr_t)tp;
+ 	return (tp);		/* XXX */
+ }
+@@ -902,6 +956,7 @@
+ 		goto out;
+ 	}
+ 	error = SYSCTL_OUT(req, inp->inp_socket->so_cred, sizeof(struct ucred));
++	printf("%x\n", inp->inp_socket->so_cred->cr_uid);
+ out:
+ 	splx(s);
+ 	return (error);
+@@ -1419,4 +1474,84 @@
+ static void
+ tcp_cleartaocache()
+ {
++}
++
++tcp_seq	tcp_iss_seq = 0;
++unsigned int tcp_iss_count = 0;
++
++tcp_seq
++tcp_new_iss(tp, len, addin)
++	void	*tp;
++	u_long	len;
++	tcp_seq	addin;
++{
++	u_long	difftime;
++	tcp_seq	tcp_iss;
++	tcp_iss = random();
++		
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD: /* NetBSD */
++		if (addin != 0){
++			tcp_iss &= TCP_ISS_RANDOM_MASK;
++			tcp_iss += addin + TCP_EMU_ISSINCR;
++		} else {
++			tcp_iss &= TCP_ISS_RANDOM_MASK;
++			tcp_iss += tcp_iss_seq;
++			tcp_iss_seq += TCP_EMU_ISSINCR;
++		}
++		break;
++	case TCP_EMU_WINDOWS: /* Windows */
++		getmicrotime(&iss_ntime);
++		difftime = (u_long)((iss_ntime.tv_sec - iss_ltime.tv_sec));
++
++		/*
++			difftime = difftime / (3*1024*1024);
++			printf("%x\n", difftime);
++		*/
++		memcpy(&iss_ltime, &iss_ntime, sizeof(struct timeval));
++		if (addin != 0){
++			tcp_iss = addin + 0x00000144 + difftime;
++			if (tcp_iss_count == 6){
++				tcp_iss++;	
++				tcp_iss_count = 0;
++			} 	
++			else 	
++				tcp_iss_count++;
++		}
++		else
++			tcp_iss += 0x00001000;
++
++		if(tcp_iss >= 0x04000000)
++			tcp_iss &= 0x03ffffff;
++		break;
++
++	case TCP_EMU_CISCO: /* CISCO IOS */
++		tcp_iss %= 0x00010000;
++		tcp_iss += 0x00000100;
++		tcp_iss &= 0x0000FFFF;
++		if (tcp_iss == 0x0000FFFF) tcp_iss--;
++		if (addin != 0){
++			tcp_iss += addin;
++		}
++		break;
++	
++	case TCP_EMU_WIN2K: /* Windows 2000 Professional */
++		tcp_iss %= 0x0001C477;
++		tcp_iss += 0x00000473;
++		tcp_iss &= 0x0001C476;
++		if (addin != 0){
++			tcp_iss += addin;
++		}
++		break;
++
++	default:
++	}
++#endif
++
++#ifdef TCP_COMPAT_42
++	if (tcp_iss >= 0x80000000)
++		tcp_iss &= 0x7fffffff;
++#endif
++	return tcp_iss;
+ }
+diff -u netinet.orig/tcp_timer.c netinet/tcp_timer.c
+--- netinet.orig/tcp_timer.c	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_timer.c	Thu Jun 14 07:09:17 2001
+@@ -37,6 +37,7 @@
+ #include "opt_compat.h"
+ #include "opt_inet6.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -67,6 +68,10 @@
+ #include <netinet/tcp_debug.h>
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ static int
+ sysctl_msec_to_ticks(SYSCTL_HANDLER_ARGS)
+ {
+@@ -132,10 +137,22 @@
+ 
+ 	tcp_maxidle = tcp_keepcnt * tcp_keepintvl;
+ 
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++		tcp_iss += TCP_EMU_ISSINCR;
++		break;
++	case TCP_EMU_WINDOWS:
++		tcp_iss += 1;
++		break;
++	default:
++	}
++#else
+ #ifdef TCP_COMPAT_42
+ 	tcp_iss += TCP_ISSINCR/PR_SLOWHZ;		/* increment iss */
+ 	if ((int)tcp_iss < 0)
+ 		tcp_iss = TCP_ISSINCR;			/* XXX */
++#endif
+ #endif
+ 	splx(s);
+ }
+diff -u netinet.orig/tcp_usrreq.c netinet/tcp_usrreq.c
+--- netinet.orig/tcp_usrreq.c	Thu Apr 19 02:55:24 2001
++++ netinet/tcp_usrreq.c	Thu Aug 30 14:19:35 2001
+@@ -37,6 +37,7 @@
+ #include "opt_ipsec.h"
+ #include "opt_inet6.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -109,6 +110,9 @@
+ #define	TCPDEBUG2(req)
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
+ /*
+  * TCP attaches to socket via pru_attach(), reserving space,
+  * and an internet control block.
+@@ -759,7 +763,18 @@
+ 	tcpstat.tcps_connattempt++;
+ 	tp->t_state = TCPS_SYN_SENT;
+ 	callout_reset(tp->tt_keep, tcp_keepinit, tcp_timer_keep, tp);
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++	case TCP_EMU_WIN2K:
++	case TCP_EMU_CISCO:
++		tp->iss = tcp_new_iss(tp, sizeof(struct tcpcb), 0);
++		break;
++	default:
++		tp->iss = tcp_rndiss_next();
++	}
++#elif defined(TCP_COMPAT_42)
+ 	tp->iss = tcp_iss;
+ 	tcp_iss += TCP_ISSINCR/2;
+ #else  /* TCP_COMPAT_42 */
+@@ -856,7 +871,18 @@
+ 	tcpstat.tcps_connattempt++;
+ 	tp->t_state = TCPS_SYN_SENT;
+ 	callout_reset(tp->tt_keep, tcp_keepinit, tcp_timer_keep, tp);
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++	case TCP_EMU_WIN2K:
++	case TCP_EMU_CISCO:
++		tp->iss = tcp_new_iss(tp, sizeof(struct tcpcb), 0);
++		break;
++	default:
++		tp->iss = tcp_rndiss_next();
++	}
++#elif defined(TCP_COMPAT_42)
+ 	tp->iss = tcp_iss; tcp_iss += TCP_ISSINCR/2;
+ #else
+ 	tp->iss = tcp_rndiss_next();
+diff -u netinet.orig/tcp_var.h netinet/tcp_var.h
+--- netinet.orig/tcp_var.h	Thu Apr 19 02:55:24 2001
++++ netinet/tcp_var.h	Tue Sep  4 03:13:58 2001
+@@ -161,6 +161,13 @@
+ 	u_long	snd_cwnd_prev;		/* cwnd prior to retransmit */
+ 	u_long	snd_ssthresh_prev;	/* ssthresh prior to retransmit */
+ 	u_long	t_badrxtwin;		/* window for retransmit recovery */
++#ifdef TCP_EMUOS
++	u_int	withmaxseg;		/* segment comes with mss option or not */
++	u_int	afterseg;		/* diff between 1st and 2nd winsize */
++	u_int	maybenmap;		/* maybe nmap has come */
++	u_int	maybecraft;		/* maybe netcraft has come */
++	u_int	sackok;			/* maybe nmap has come */
++#endif
+ };
+ 
+ /*
+@@ -413,6 +420,13 @@
+ tcp_seq	tcp_rndiss_next __P((void));
+ u_int16_t
+ 	tcp_rndiss_encrypt __P((u_int16_t));
++
++tcp_seq tcp_new_iss __P((void *, u_long, tcp_seq)); 
++#define	TCP_EMU_FREEBSD	0x01
++#define	TCP_EMU_NETBSD	0x02
++#define	TCP_EMU_WINDOWS	0x03
++#define	TCP_EMU_WIN2K	0x04
++#define	TCP_EMU_CISCO	0x05
+ 
+ #endif /* _KERNEL */
+ 
+diff -u netinet.orig/udp_usrreq.c netinet/udp_usrreq.c
+--- netinet.orig/udp_usrreq.c	Mon Mar  5 22:09:03 2001
++++ netinet/udp_usrreq.c	Mon Sep  3 21:19:32 2001
+@@ -36,6 +36,7 @@
+ 
+ #include "opt_ipsec.h"
+ #include "opt_inet6.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -131,6 +132,10 @@
+ static void ip_2_ip6_hdr __P((struct ip6_hdr *ip6, struct ip *ip));
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ static int udp_detach __P((struct socket *so));
+ static	int udp_output __P((struct inpcb *, struct mbuf *, struct sockaddr *,
+ 			    struct mbuf *, struct proc *));
+@@ -159,6 +164,9 @@
+ 	struct mbuf *opts = 0;
+ 	int len;
+ 	struct ip save_ip;
++#ifdef	TCP_EMUOS
++	u_short save_usum;
++#endif
+ 	struct sockaddr *append_sa;
+ 
+ 	udpstat.udps_ipackets++;
+@@ -209,7 +217,9 @@
+ 	 * for sending an ICMP error message in response.
+ 	 */
+ 	save_ip = *ip;
+-
++#ifdef TCP_EMUOS
++	save_usum = uh->uh_sum;
++#endif
+ 	/*
+ 	 * Checksum extended UDP header and data.
+ 	 */
+@@ -233,7 +243,33 @@
+ 			return;
+ 		}
+ 	}
++#ifdef	TCP_EMUOS
+ 
++#ifndef	TCP_EMU_NETBSD
++#define	TCP_EMU_NETBSD	0x0002
++#endif
++
++#ifndef	TCP_EMU_WINDOWS
++#define	TCP_EMU_WINDOWS	0x0003
++#endif
++
++#ifndef	TCP_EMU_WIN2K
++#define	TCP_EMU_WIN2K	0x0004
++#endif
++
++#ifndef	TCP_EMU_CISCO
++#define	TCP_EMU_CISCO	0x0005
++#endif
++
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++	case TCP_EMU_WIN2K:
++		uh->uh_sum = save_usum;
++		break;
++	default:
++	}
++#endif
+ 	if (IN_MULTICAST(ntohl(ip->ip_dst.s_addr)) ||
+ 	    in_broadcast(ip->ip_dst, m->m_pkthdr.rcvif)) {
+ 		struct inpcb *last;
+@@ -358,8 +394,14 @@
+ #endif
+ 		if (blackhole)
+ 			goto bad;
++
++#ifdef TCP_EMUOS
++		if (emu_kind == TCP_EMU_CISCO)
++			goto bad;
++#endif
+ 		*ip = save_ip;
+ 		ip->ip_len += iphlen;
++
+ 		icmp_error(m, ICMP_UNREACH, ICMP_UNREACH_PORT, 0, 0);
+ 		return;
+ 	}
+diff -u conf.orig/options conf/options
+--- conf.orig/options	Fri Apr  6 02:23:43 2001
++++ conf/options	Tue May 29 04:20:05 2001
+@@ -256,6 +256,7 @@
+ TCPDEBUG
+ TCP_DROP_SYNFIN		opt_tcp_input.h
+ TCP_RESTRICT_RST	opt_tcp_input.h
++TCP_EMUOS		opt_tcp_emuos.h
+ XBONEHACK
+ 
+ # Netgraph(4). Use option NETGRAPH to enable the base netgraph code.
