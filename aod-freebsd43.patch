@@ -1,0 +1,470 @@
+--- conf/options.orig	Fri Apr  6 02:23:43 2001
++++ conf/options	Tue May 22 01:28:11 2001
+@@ -256,6 +256,7 @@
+ TCPDEBUG
+ TCP_DROP_SYNFIN		opt_tcp_input.h
+ TCP_RESTRICT_RST	opt_tcp_input.h
++TCP_EMUOS		opt_tcp_emuos.h
+ XBONEHACK
+ 
+ # Netgraph(4). Use option NETGRAPH to enable the base netgraph code.
+--- netinet/ip_output.c.orig	Mon Mar 12 07:18:00 2001
++++ netinet/ip_output.c	Thu May 24 09:45:44 2001
+@@ -41,6 +41,7 @@
+ #include "opt_ipdivert.h"
+ #include "opt_ipfilter.h"
+ #include "opt_ipsec.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -111,6 +112,9 @@
+ 
+ extern	struct protosw inetsw[];
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
+ /*
+  * IP output.  The packet in mbuf chain m contains a skeletal IP
+  * header (with len, off, ttl, proto, tos, src, dst).
+@@ -208,7 +212,19 @@
+ 	if ((flags & (IP_FORWARDING|IP_RAWOUTPUT)) == 0) {
+ 		ip->ip_vhl = IP_MAKE_VHL(IPVERSION, hlen >> 2);
+ 		ip->ip_off &= IP_DF;
++#ifdef TCP_EMUOS
++#ifndef TCP_EMU_WINDOWS
++#define TCP_EMU_WINDOWS 0x03
++#endif
++	if (emu_kind == TCP_EMU_WINDOWS){
++		ip->ip_id = htons(ip_id);
++		ip_id += 256;
++	}
++	else
+ 		ip->ip_id = htons(ip_id++);
++#else
++		ip->ip_id = htons(ip_id++);
++#endif
+ 		ipstat.ips_localout++;
+ 	} else {
+ 		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
+--- netinet/tcp_input.c.orig	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_input.c	Wed May 23 19:08:06 2001
+@@ -39,6 +39,7 @@
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
+ #include "opt_tcp_input.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -138,6 +139,12 @@
+     &restrict_rst, 0, "Restrict RST emission");
+ #endif
+ 
++#ifdef TCP_EMUOS
++int emu_kind = 0;
++SYSCTL_INT(_net_inet_tcp, OID_AUTO, emu_kind, CTLFLAG_RW,
++    &emu_kind, 0, "Emulate another kind of tcp stacks");
++#endif
++
+ struct inpcbhead tcb;
+ #define	tcb6	tcb  /* for KAME src sync over BSD*'s */
+ struct inpcbinfo tcbinfo;
+@@ -532,6 +539,26 @@
+ 	drop_hdrlen = off0 + off;
+ 
+ 	/*
++	 * For emulate os.
++	 */
++#ifdef TCP_EMUOS
++	/* against null scan */
++	if (thflags == 0){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++		case TCP_EMU_WINDOWS:
++			goto dropwithreset;
++			break;
++		default:
++		}
++	}
++
++	/* against xmass scan */
++	if (thflags == (TH_FIN|TH_PUSH|TH_URG) && emu_kind == TCP_EMU_WINDOWS)
++		goto dropwithreset;
++#endif
++
++	/*
+ 	 * Locate pcb for segment.
+ 	 */
+ findpcb:
+@@ -1118,7 +1145,18 @@
+ 		if (iss)
+ 			tp->iss = iss;
+ 		else {
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++			switch(emu_kind){
++			case TCP_EMU_NETBSD:
++			case TCP_EMU_WINDOWS:
++				tcp_iss = tcp_new_iss(tp, 
++						sizeof(struct tcpcb), tcp_iss);
++				tp->iss = tcp_iss;
++				break;
++			default:
++				tp->iss = tcp_rndiss_next();
++			}
++#elif defined(TCP_COMPAT_42)
+ 			tcp_iss += TCP_ISSINCR/2;
+ 			tp->iss = tcp_iss;
+ #else
+@@ -1655,7 +1693,17 @@
+ 			if (thflags & TH_SYN &&
+ 			    tp->t_state == TCPS_TIME_WAIT &&
+ 			    SEQ_GT(th->th_seq, tp->rcv_nxt)) {
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++		iss = tcp_new_iss(tp, sizeof(struct tcpcb), tp->snd_nxt);
++		break;
++	default:
++		iss = tcp_rndiss_next();
++	}
++
++#elif defined(TCP_COMPAT_42)
+ 				iss = tp->snd_nxt + TCP_ISSINCR;
+ #else
+ 				iss = tcp_rndiss_next();
+@@ -2330,6 +2378,27 @@
+ 	if (tp == 0 || (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
+ 		tcp_trace(TA_DROP, ostate, tp, (void *)tcp_saveipgen,
+ 			  &tcp_savetcp, 0);
++#endif
++
++#ifdef TCP_EMUOS
++	if (thflags == 0){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++			tcp_respond(tp, mtod(m, void *), th, m, th->th_seq,
++					(tcp_seq)0, TH_RST|TH_ACK);
++			break;
++		case TCP_EMU_WINDOWS:
++			tcp_respond(tp, mtod(m, void *), th, m, th->th_seq,
++					th->th_ack, TH_RST|TH_ACK);
++			break;
++		default:
++		}
++	}
++	else if (thflags == (TH_FIN|TH_PUSH|TH_URG) &&
++			emu_kind == TCP_EMU_WINDOWS)
++			tcp_respond(tp, mtod(m, void *), th, m, (th->th_seq)+1,
++					(tcp_seq)0, TH_RST|TH_ACK);
++	else
+ #endif
+ 	if (thflags & TH_ACK)
+ 		/* mtod() below is safe as long as hdr dropping is delayed */
+--- netinet/tcp_output.c.orig	Mon Mar  5 22:09:03 2001
++++ netinet/tcp_output.c	Wed May 23 05:42:13 2001
+@@ -37,6 +37,7 @@
+ #include "opt_inet6.h"
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -81,6 +82,10 @@
+ extern struct mbuf *m_copypack();
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ static int path_mtu_discovery = 1;
+ SYSCTL_INT(_net_inet_tcp, OID_AUTO, path_mtu_discovery, CTLFLAG_RW,
+ 	&path_mtu_discovery, 1, "Enable Path MTU Discovery");
+@@ -96,6 +101,7 @@
+ int     tcp_do_newreno = 1;
+ SYSCTL_INT(_net_inet_tcp, OID_AUTO, newreno, CTLFLAG_RW, &tcp_do_newreno,
+         0, "Enable NewReno Algorithms");
++
+ /*
+  * Tcp output routine: figure out what should be sent and send it.
+  */
+@@ -119,6 +125,10 @@
+ 	int maxburst = TCP_MAXBURST;
+ 	struct rmxp_tao *taop;
+ 	struct rmxp_tao tao_noncached;
++#ifdef TCP_EMUOS
++	u_short defwin = 0;
++#endif
++
+ #ifdef INET6
+ 	int isipv6;
+ #endif
+@@ -696,6 +706,23 @@
+ 	if (win > (long)TCP_MAXWIN << tp->rcv_scale)
+ 		win = (long)TCP_MAXWIN << tp->rcv_scale;
+ 	th->th_win = htons((u_short) (win>>tp->rcv_scale));
++
++#ifdef TCP_EMUOS
++	if(th->th_flags & (TH_SYN|TH_ACK)){
++		switch(emu_kind){
++		case TCP_EMU_NETBSD:
++			defwin = 0x4000;
++			break;
++		case TCP_EMU_WINDOWS:
++			defwin = 0x2017;
++			break;
++		default:
++		}
++		if(defwin > 0)
++			th->th_win = htons((u_short)defwin);
++	}
++#endif
++
+ 	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
+ 		th->th_urp = htons((u_short)(tp->snd_up - tp->snd_nxt));
+ 		th->th_flags |= TH_URG;
+@@ -849,7 +876,12 @@
+ 	 *	2) the MTU is not locked (if it is, then discovery has been
+ 	 *	   disabled)
+ 	 */
+-	if (path_mtu_discovery
++	if (
++#ifdef TCP_EMUOS
++	(emu_kind == TCP_EMU_WINDOWS || (emu_kind == 0 && path_mtu_discovery))
++#else
++	path_mtu_discovery
++#endif
+ 	    && (rt = tp->t_inpcb->inp_route.ro_rt)
+ 	    && rt->rt_flags & RTF_UP
+ 	    && !(rt->rt_rmx.rmx_locks & RTV_MTU)) {
+--- netinet/tcp_seq.h.orig	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_seq.h	Wed May 23 06:17:54 2001
+@@ -81,7 +81,7 @@
+ #ifdef _KERNEL
+ extern tcp_cc	tcp_ccgen;		/* global connection count */
+ 
+-#ifdef TCP_COMPAT_42
++#if (defined(TCP_COMPAT_42) || defined(TCP_EMUOS))
+ /*
+  * Increment for tcp_iss each second.
+  * This is designed to increment at the standard 250 KB/s,
+@@ -97,6 +97,13 @@
+ #define	TCP_ISSINCR	(122*1024 + tcp_random18())
+ 
+ extern tcp_seq	tcp_iss;		/* tcp initial send seq # */
++
++#ifdef TCP_EMUOS
++#define	TCP_EMU_ISSINCR		0x01000000
++#define	TCP_ISS_RANDOM_MASK	0x00ffffff
++extern tcp_seq	tcp_iss_seq;		/* tcp_initial send seq #+ */
++#endif
++
+ #endif /* TCP_COMPAT_42 */
+ #else
+ #define	TCP_ISSINCR	(250*1024)	/* increment for tcp_iss each second */
+--- netinet/tcp_subr.c.orig	Thu Apr 19 02:55:23 2001
++++ netinet/tcp_subr.c	Thu May 24 09:36:45 2001
+@@ -38,6 +38,7 @@
+ #include "opt_inet6.h"
+ #include "opt_ipsec.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -142,6 +143,10 @@
+ static void	tcp_cleartaocache __P((void));
+ static void	tcp_notify __P((struct inpcb *, int));
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
++
+ /*
+  * Target size of TCP PCB hash tables. Must be a power of two.
+  *
+@@ -181,10 +186,15 @@
+ tcp_init()
+ {
+ 	int hashsize;
+-	
++
++#ifdef TCP_EMUOS
++	if (emu_kind == TCP_EMU_WINDOWS)
++		tcp_iss = arc4random() & 0x001fffff;	 
++#else	
+ #ifdef TCP_COMPAT_42
+ 	tcp_iss = 1;		/* wrong */
+ #endif /* TCP_COMPAT_42 */
++#endif
+ 	tcp_ccgen = 1;
+ 	tcp_cleartaocache();
+ 
+@@ -503,7 +513,11 @@
+ 	callout_init(tp->tt_2msl = &it->inp_tp_2msl);
+ 	callout_init(tp->tt_delack = &it->inp_tp_delack);
+ 
+-	if (tcp_do_rfc1323)
++	if (tcp_do_rfc1323
++#ifdef TCP_EMUOS
++		|| (emu_kind == TCP_EMU_NETBSD)
++#endif
++	)
+ 		tp->t_flags = (TF_REQ_SCALE|TF_REQ_TSTMP);
+ 	if (tcp_do_rfc1644)
+ 		tp->t_flags |= TF_REQ_CC;
+@@ -1419,4 +1433,51 @@
+ static void
+ tcp_cleartaocache()
+ {
++}
++
++tcp_seq	tcp_iss_seq = 0;
++unsigned int tcp_iss_count = 0;
++
++tcp_seq
++tcp_new_iss(tp, len, addin)
++	void	*tp;
++	u_long	len;
++	tcp_seq	addin;
++{
++	tcp_seq	tcp_iss;
++	tcp_iss = random();
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD: /* NetBSD */
++		if (addin != 0){
++			tcp_iss &= TCP_ISS_RANDOM_MASK;
++			tcp_iss += addin + TCP_EMU_ISSINCR;
++		} else {
++			tcp_iss &= TCP_ISS_RANDOM_MASK;
++			tcp_iss += tcp_iss_seq;
++			tcp_iss_seq += TCP_EMU_ISSINCR;
++		}
++		break;
++	case TCP_EMU_WINDOWS: /* Windows */
++		if (addin != 0){
++			tcp_iss = addin + 0x00000140;
++			if (tcp_iss_count == 6){
++				tcp_iss++;	
++				tcp_iss_count = 0;
++			} 
++			else 
++				tcp_iss_count++;
++		}
++		else
++			tcp_iss += 0x00001000;
++		break;
++	default:
++	}
++#endif
++
++#ifdef TCP_COMPAT_42
++	if (tcp_iss >= 0x80000000)
++		tcp_iss &= 0x7fffffff;
++#endif
++	return tcp_iss;
+ }
+--- netinet/tcp_usrreq.c.orig	Thu Apr 19 02:55:24 2001
++++ netinet/tcp_usrreq.c	Wed May 23 19:08:34 2001
+@@ -37,6 +37,7 @@
+ #include "opt_ipsec.h"
+ #include "opt_inet6.h"
+ #include "opt_tcpdebug.h"
++#include "opt_tcp_emuos.h"
+ 
+ #include <sys/param.h>
+ #include <sys/systm.h>
+@@ -109,6 +110,9 @@
+ #define	TCPDEBUG2(req)
+ #endif
+ 
++#ifdef TCP_EMUOS
++extern int emu_kind;
++#endif
+ /*
+  * TCP attaches to socket via pru_attach(), reserving space,
+  * and an internet control block.
+@@ -759,7 +763,16 @@
+ 	tcpstat.tcps_connattempt++;
+ 	tp->t_state = TCPS_SYN_SENT;
+ 	callout_reset(tp->tt_keep, tcp_keepinit, tcp_timer_keep, tp);
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++		tp->iss = tcp_new_iss(tp, sizeof(struct tcpcb), 0);
++		break;
++	default:
++		tp->iss = tcp_rndiss_next();
++	}
++#elif defined(TCP_COMPAT_42)
+ 	tp->iss = tcp_iss;
+ 	tcp_iss += TCP_ISSINCR/2;
+ #else  /* TCP_COMPAT_42 */
+@@ -856,7 +869,16 @@
+ 	tcpstat.tcps_connattempt++;
+ 	tp->t_state = TCPS_SYN_SENT;
+ 	callout_reset(tp->tt_keep, tcp_keepinit, tcp_timer_keep, tp);
+-#ifdef TCP_COMPAT_42
++#ifdef TCP_EMUOS
++	switch(emu_kind){
++	case TCP_EMU_NETBSD:
++	case TCP_EMU_WINDOWS:
++		tp->iss = tcp_new_iss(tp, sizeof(struct tcpcb), 0);
++		break;
++	default:
++		tp->iss = tcp_rndiss_next();
++	}
++#elif defined(TCP_COMPAT_42)
+ 	tp->iss = tcp_iss; tcp_iss += TCP_ISSINCR/2;
+ #else
+ 	tp->iss = tcp_rndiss_next();
+--- netinet/tcp_var.h.orig	Thu Apr 19 02:55:24 2001
++++ netinet/tcp_var.h	Wed May 23 06:31:44 2001
+@@ -414,6 +414,11 @@
+ u_int16_t
+ 	tcp_rndiss_encrypt __P((u_int16_t));
+ 
++tcp_seq tcp_new_iss __P((void *, u_long, tcp_seq));
++#define	TCP_EMU_FREEBSD	0x01
++#define	TCP_EMU_NETBSD	0x02
++#define	TCP_EMU_WINDOWS	0x03
++
+ #endif /* _KERNEL */
+ 
+ #endif /* _NETINET_TCP_VAR_H_ */
+--- netinet/udp_usrreq.c.orig	Mon Mar  5 22:09:03 2001
++++ netinet/udp_usrreq.c	Tue May 22 20:19:36 2001
+@@ -159,6 +159,7 @@
+ 	struct mbuf *opts = 0;
+ 	int len;
+ 	struct ip save_ip;
++	u_short save_usum;
+ 	struct sockaddr *append_sa;
+ 
+ 	udpstat.udps_ipackets++;
+@@ -209,7 +210,7 @@
+ 	 * for sending an ICMP error message in response.
+ 	 */
+ 	save_ip = *ip;
+-
++	save_usum = uh->uh_sum;
+ 	/*
+ 	 * Checksum extended UDP header and data.
+ 	 */
+@@ -233,6 +234,7 @@
+ 			return;
+ 		}
+ 	}
++	uh->uh_sum = save_usum;
+ 
+ 	if (IN_MULTICAST(ntohl(ip->ip_dst.s_addr)) ||
+ 	    in_broadcast(ip->ip_dst, m->m_pkthdr.rcvif)) {
