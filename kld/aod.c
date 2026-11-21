@@ -112,21 +112,25 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 		.ipid_stride = 1,
 		.opt_order = AOD_OPT_WINDOWS, .wscale = 8,
 		.no_ecn = 1, .ts_per_host = 1,
+		/* accepts timestamps when asked, never asks for them */
+		.strip_ts = 1,
 		.null_reply = AOD_NULL_RSTACK,
 		.synfin_reply = AOD_SYNFIN_RSTACK, .rst_noack = 1,
 		.rst_ack_other = 1, .echo_code0 = 1,
 	},
-	[AOD_EMU_WIN11_NOTS] = {
-		.kind = AOD_EMU_WIN11_NOTS,
-		.synack_win = { { 0xff70, 0xffff }, { 0xffdc, 0xffff } },
+	/*
+	 * A 2 GB Ubuntu 26.04.1 guest as we measured it: window scale 8
+	 * (FreeBSD's own value) and a timestamp clock that differs per
+	 * connection (also FreeBSD's default), otherwise as AOD_EMU_LINUX.
+	 */
+	[AOD_EMU_LINUX7] = {
+		.kind = AOD_EMU_LINUX7,
+		.synack_win = { { 0xfaf0, 0xfaf0 }, { 0xfe88, 0xfe88 } },
 		.syn_win = 0xfaf0,
-		.ttl = 128, .icmp_ttl = 128,
-		.ipid_stride = 1,
-		.opt_order = AOD_OPT_WINDOWS, .wscale = 8,
-		.no_ecn = 1, .strip_ts = 1,
-		.null_reply = AOD_NULL_RSTACK,
-		.synfin_reply = AOD_SYNFIN_RSTACK, .rst_noack = 1,
-		.rst_ack_other = 1, .echo_code0 = 1,
+		.ttl = 64, .icmp_ttl = 64,
+		.opt_order = AOD_OPT_LINUX,
+		.ipid_stride = 1, .ipid_tcp_only = 1,
+		.synfin_reply = AOD_SYNFIN_DROP,
 	},
 };
 
@@ -175,8 +179,8 @@ aod_sysctl_kind(SYSCTL_HANDLER_ARGS)
 SYSCTL_PROC(_net_inet_tcp, OID_AUTO, emu_kind,
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_MPSAFE, NULL, 0, aod_sysctl_kind, "I",
     "Emulate another kind of tcp stacks (0 off, 1 FreeBSD, 2 NetBSD, "
-    "3 Windows, 4 Windows 2000, 5 Cisco, 6 Linux 6, 7 Windows 11, "
-    "8 Windows 11 without timestamps)");
+    "3 Windows, 4 Windows 2000, 5 Cisco, 6 Linux (nmap database), "
+    "7 Linux (as measured), 8 Windows 11)");
 
 /* RFC 1624 incremental update. All values in network byte order. */
 static uint16_t
@@ -637,7 +641,7 @@ aod_check_in(struct mbuf **mp, struct ifnet *ifp __unused,
 	}
 
 	/* blank the timestamp offer so that the kernel never uses it */
-	if (p->strip_ts && (thflags & (TH_SYN | TH_ACK | TH_RST)) == TH_SYN &&
+	if (p->refuse_ts && (thflags & (TH_SYN | TH_ACK | TH_RST)) == TH_SYN &&
 	    M_WRITABLE(m))
 		aod_in_strip_ts(m, th, hlen);
 	return (PFIL_PASS);

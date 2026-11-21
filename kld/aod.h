@@ -18,9 +18,9 @@
 #define	AOD_EMU_WIN2K	0x04
 #define	AOD_EMU_CISCO	0x05
 #define	AOD_EMU_LINUX	0x06	/* Linux 6.0 in nmap-os-db */
-#define	AOD_EMU_WIN11	0x07	/* Microsoft Windows 11 21H2 in nmap-os-db */
-#define	AOD_EMU_WIN11_NOTS 0x08	/* same, timestamps off (the Windows default) */
-#define	AOD_EMU_MAX	AOD_EMU_WIN11_NOTS
+#define	AOD_EMU_LINUX7	0x07	/* Ubuntu 26.04.1 (Linux 7.0) as measured */
+#define	AOD_EMU_WIN11	0x08	/* Windows 11; agrees with nmap-os-db and a real host */
+#define	AOD_EMU_MAX	AOD_EMU_WIN11
 
 /* set_df values */
 #define	AOD_DF_LEAVE	0
@@ -54,7 +54,8 @@ struct aod_profile {
 	uint16_t	ipid_stride;	/* IP id increment, 0 = leave kernel default */
 	uint8_t		ipid_zero_on_syn; /* restart the IP id counter at 0 on SYN */
 	uint8_t		ipid_tcp_only;	/* count only on TCP other than SYN|ACK and RST */
-	uint8_t		strip_ts;	/* never offer or accept TCP timestamps */
+	uint8_t		strip_ts;	/* never offer TCP timestamps on our own SYN */
+	uint8_t		refuse_ts;	/* never accept TCP timestamps offered to us */
 	uint8_t		opt_order;	/* AOD_OPT_* */
 	uint8_t		wscale;		/* window scale to announce, 0 = leave */
 	uint8_t		no_ecn;		/* never negotiate ECN */

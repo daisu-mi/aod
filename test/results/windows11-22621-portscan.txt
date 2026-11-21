@@ -1,0 +1,7 @@
+-sS 23/tcp closed (reset ttl 128) 135/tcp open (syn-ack ttl 128) 
+-sF 23/tcp closed (reset ttl 128) 135/tcp closed (reset ttl 128) 
+-sN 23/tcp closed (reset ttl 128) 135/tcp closed (reset ttl 128) 
+-sX 23/tcp closed (reset ttl 128) 135/tcp closed (reset ttl 128) 
+-sA 23/tcp unfiltered (reset ttl 128) 135/tcp unfiltered (reset ttl 128) 
+-sW 23/tcp closed (reset ttl 128) 135/tcp closed (reset ttl 128) 
+-sM 23/tcp closed (reset ttl 128) 135/tcp closed (reset ttl 128) 
