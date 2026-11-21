@@ -1,0 +1,79 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00024s latency).
+
+PORT   STATE  SERVICE REASON
+22/tcp open   ssh     syn-ack ttl 64
+23/tcp closed telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.13 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received user-set (0.00030s latency).
+
+PORT   STATE  SERVICE REASON
+22/tcp open   ssh     syn-ack
+23/tcp closed telnet  conn-refused
+
+Nmap done: 1 IP address (1 host up) scanned in 0.03 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00015s latency).
+
+PORT   STATE      SERVICE REASON
+22/tcp unfiltered ssh     reset ttl 64
+23/tcp unfiltered telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.12 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00023s latency).
+
+PORT   STATE         SERVICE REASON
+22/tcp open|filtered ssh     no-response
+23/tcp closed        telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.32 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00027s latency).
+
+PORT   STATE         SERVICE REASON
+22/tcp open|filtered ssh     no-response
+23/tcp closed        telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.32 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:38 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00029s latency).
+
+PORT   STATE         SERVICE REASON
+22/tcp open|filtered ssh     no-response
+23/tcp closed        telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.31 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:39 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00025s latency).
+
+PORT   STATE  SERVICE REASON
+22/tcp closed ssh     reset ttl 64
+23/tcp closed telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.12 seconds
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 11:39 +0900
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00020s latency).
+
+PORT   STATE  SERVICE REASON
+22/tcp closed ssh     reset ttl 64
+23/tcp closed telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.11 seconds
