@@ -109,6 +109,10 @@ first; `test/vm/` has the scripts used for that.
   [`legacy/miyamoto-wit2001.pdf`](legacy/miyamoto-wit2001.pdf)
 - A report on the 2026 rewrite is in preparation.
 
+## Contact
+
+Daisuke Miyamoto — daisuke [ at ] iplove.net
+
 ## License
 
 `kld/` and `test/` are under the BSD 2-Clause license; see `LICENSE`.
