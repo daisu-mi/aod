@@ -80,18 +80,17 @@ this setup.
 
 | Condition | receive Gbit/s | send Gbit/s | connections/s |
 |---|---|---|---|
-| no module | 2.46 | 17.43 | 13212 |
-| loaded, off | 2.38 | 16.50 | 16264 |
-| Linux (6) | 2.41 | 17.54 | 14429 |
-| Windows, timestamps in both directions | 2.51 | 17.84 | 15872 |
-| Windows, no timestamps | 2.46 | 16.95 | 15295 |
+| no module | 2.50 | 16.64 | 14828 |
+| loaded, off | 2.53 | 16.01 | 14483 |
+| 6 Linux (database) | 2.49 | 16.03 | 16537 |
+| 7 Linux (as measured) | 2.49 | 16.13 | 14252 |
+| 8 Windows 11 | 2.51 | 16.28 | 16747 |
 
-The two Windows rows are earlier variants that were later merged into
-personality 8, which uses timestamps on connections it receives and not on
-connections it opens. With TSO and LRO disabled, the variant without timestamps
-sends about 9% slower. The same drop appears without the module when timestamps
-are disabled in the stock kernel, so it comes from running without timestamps,
-not from the module.
+An earlier Windows variant that used no TCP timestamps at all sent about 9%
+slower with TSO and LRO disabled. The same drop appears without the module when
+timestamps are disabled in the stock kernel, so it comes from running without
+timestamps, not from the module. Personality 8 does without timestamps only on
+the connections the host opens.
 
 ## Limitations
 
