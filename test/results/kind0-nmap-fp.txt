@@ -1,0 +1,93 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-21 16:41 +0900
+--------------- Timing report ---------------
+  hostgroups: min 1, max 100000
+  rtt-timeouts: init 1000, min 100, max 10000
+  max-scan-delay: TCP 1000, UDP 1000, SCTP 1000
+  parallelism: min 0, max 0
+  max-retries: 10, host-timeout: 0
+  min-rate: 0, max-rate: 0
+---------------------------------------------
+Initiating ARP Ping Scan at 16:41
+Scanning 10.99.0.2 [1 port]
+Packet capture filter (device aodtap0): arp and arp[18:4] = 0x8E3F8287 and arp[22:2] = 0x5099
+Completed ARP Ping Scan at 16:41, 0.04s elapsed (1 total hosts)
+Overall sending rates: 23.14 packets / s, 971.68 bytes / s.
+Initiating SYN Stealth Scan at 16:41
+Scanning 10.99.0.2 [2 ports]
+Packet capture filter (device aodtap0): dst host 10.99.0.1 and (icmp or icmp6 or ((tcp or udp or sctp) and (src host 10.99.0.2)))
+Discovered open port 22/tcp on 10.99.0.2
+Completed SYN Stealth Scan at 16:41, 0.01s elapsed (2 total ports)
+Overall sending rates: 179.74 packets / s, 7908.69 bytes / s.
+Packet capture filter (device aodtap0): dst host 10.99.0.1 and (icmp or (tcp and (src host 10.99.0.2)))
+Initiating OS detection (try #1) against 10.99.0.2
+OS detection timingRatio() == (1795246900.700 - 1795246900.200) * 1000 / 500 == 1.000
+Retrying OS detection (try #2) against 10.99.0.2
+OS detection timingRatio() == (1795246902.800 - 1795246902.300) * 1000 / 500 == 1.000
+Retrying OS detection (try #3) against 10.99.0.2
+OS detection timingRatio() == (1795246904.900 - 1795246904.400) * 1000 / 500 == 1.000
+Retrying OS detection (try #4) against 10.99.0.2
+OS detection timingRatio() == (1795246908.500 - 1795246907.999) * 1000 / 500 == 1.002
+Retrying OS detection (try #5) against 10.99.0.2
+OS detection timingRatio() == (1795246910.600 - 1795246910.099) * 1000 / 500 == 1.000
+Nmap scan report for 10.99.0.2
+Host is up, received arp-response (0.00016s latency).
+Scanned at 2026-11-21 16:41:40 JST for 11s
+
+PORT   STATE  SERVICE REASON
+22/tcp open   ssh     syn-ack ttl 64
+23/tcp closed telnet  reset ttl 64
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+Aggressive OS guesses: Android 4.0.1 - 4.0.4 (Linux 3.0) (93%), FreeBSD 12.0-RELEASE - 13.0-RELEASE (92%), FreeBSD 12.2-RELEASE - 12.3-RELEASE (92%), D-Link DIR-300 WAP (92%), FreeBSD 13.0-STABLE (92%), Android 2.3.5 - 2.3.7 (Linux 2.6.35) (91%), Tintri OS 3.2 (Linux 3.2) (91%), FreeBSD 12.0-RELEASE - 13.1-RELEASE (91%), Android 2.2 (Linux 2.6.32) (91%), Android 2.2 - 2.2.1 (Linux 2.6.32) (91%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+Add IP 0.0.0.0/8 to addrset (trie).
+Add IP 10.0.0.0/8 to addrset (trie).
+Add IP 100.64.0.0/10 to addrset (trie).
+Add IP 127.0.0.0/8 to addrset (trie).
+Add IP 169.254.0.0/16 to addrset (trie).
+Add IP 172.16.0.0/12 to addrset (trie).
+Add IP 192.0.0.0/24 to addrset (trie).
+Add IP 192.0.2.0/24 to addrset (trie).
+Add IP 192.168.0.0/16 to addrset (trie).
+Add IP 198.18.0.0/15 to addrset (trie).
+Add IP 198.51.100.0/24 to addrset (trie).
+Add IP 203.0.113.0/24 to addrset (trie).
+Add IP 240.0.0.0/4 to addrset (trie).
+Add IP 255.255.255.255/-1 to addrset (trie).
+Add IP ::1/-1 to addrset (trie).
+Add IP ::/-1 to addrset (trie).
+Add IP ::ffff:0.0.0.0/96 to addrset (trie).
+Add IP 64:ff9b:1::/48 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 2001::/23 to addrset (trie).
+Add IP 2001:db8::/32 to addrset (trie).
+Add IP 2002::/16 to addrset (trie).
+Add IP 3fff::/20 to addrset (trie).
+Add IP 5f00::/16 to addrset (trie).
+Add IP fc00::/7 to addrset (trie).
+Add IP fe80::/10 to addrset (trie).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/21%OT=22%CT=23%CU=36569%PV=Y%DS=1%DC=D%G=Y%M=525400
+OS:%TM=6B014B3F%P=x86_64-pc-linux-gnu)SEQ(SP=103%GCD=1%ISR=10E%TI=Z%CI=Z%II
+OS:=I%TS=21)SEQ(SP=105%GCD=1%ISR=108%TI=Z%CI=Z%II=I%TS=22)SEQ(SP=105%GCD=1%
+OS:ISR=10D%TI=Z%CI=Z%II=I%TS=21)SEQ(SP=107%GCD=1%ISR=10A%TI=Z%CI=Z%II=I%TS=
+OS:21)SEQ(SP=FE%GCD=1%ISR=10E%TI=Z%CI=Z%II=I%TS=22)OPS(O1=M5B4NW8ST11%O2=M5
+OS:B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WIN(
+OS:W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=40%W=FFFF
+OS:%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R
+OS:=Y%DF=Y%T=40%W=FFFF%S=O%A=S+%F=AS%O=M5B4NW8ST11%RD=0%Q=)T4(R=Y%DF=Y%T=40
+OS:%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q
+OS:=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=40%W=0%S=Z%A
+OS:=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%R
+OS:UCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)
+
+Uptime guess: 0.000 days (since Sat Nov 21 16:41:47 2026)
+Network Distance: 1 hop
+TCP Sequence Prediction: Difficulty=261 (Good luck!)
+IP ID Sequence Generation: All zeros
+Final times for host: srtt: 162 rttvar: 34  to: 100000
+
+Read from /usr/bin/../share/nmap: nmap-mac-prefixes nmap-os-db nmap-protocols nmap-services.
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.34 seconds
+           Raw packets sent: 98 (8.106KB) | Rcvd: 78 (6.662KB)

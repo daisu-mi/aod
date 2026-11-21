@@ -3,9 +3,10 @@
 A FreeBSD kernel module that makes a host answer OS fingerprinting tools as if
 it ran a different operating system.
 
-The first version was a patch to the FreeBSD 4.3 kernel, written in 2001. This
-repository now holds a rewrite for FreeBSD 15.1 as a loadable module, next to
-the original patch.
+The first version was a modified FreeBSD 4.3 kernel, described in a 2001 paper.
+This repository holds a rewrite for FreeBSD 15.1 as a loadable module. The patch
+and source tree of the old version were recovered later and are kept in
+`legacy/`.
 
 | Directory | Contents |
 |---|---|
@@ -27,8 +28,9 @@ With the module loaded and a personality selected, the tools report:
 Each personality was compared with a real host on the same test network:
 
 - **Windows 11** (build 22621). Nmap, p0f and JA4T give personality 8 and the
-  real host the same result. The Nmap fingerprints are identical line by line
-  except for two values that vary between runs.
+  real host the same result. In the Nmap fingerprints every test line from OPS
+  to IE is identical; the SEQ line differs only in two measured values that
+  also vary between runs of the same host.
 - **Ubuntu 26.04.1** (Linux 7.0). Nmap does not recognize the real host: its
   database ends at Linux 6.0. Personality 7 gets the same non-match, with the
   same list of guesses. Personality 6 follows the database instead and is an
@@ -97,6 +99,8 @@ the connections the host opens.
 - Only the first packets of a connection are shaped. Retransmission timing,
   congestion behaviour and everything above TCP remain FreeBSD's.
 - Initial sequence numbers are not changed.
+- IP IDs come from one counter; a real Linux host numbers each connection
+  separately, which shows after the handshake.
 - IPv4 only. Only the default vnet.
 - The window scale can be lowered, not raised.
 - The comparison with real hosts covers one Linux and one Windows machine. On
