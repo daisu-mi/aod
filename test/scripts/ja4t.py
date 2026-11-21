@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""pcap から SYN と SYN/ACK を取り出し、JA4T / JA4TS の形で出す。
+"""Extract SYN and SYN/ACK segments from a capture and print JA4T / JA4TS strings.
 
-形は FoxIO の JA4T と同じ: ウィンドウ_オプション番号の並び_MSS_スケール
-使い方: ja4t.py ファイル.pcap
+Same format as FoxIO's JA4T: window_optionkinds_mss_windowscale
+Usage: ja4t.py file.pcap
 """
 import subprocess, sys
 
@@ -17,7 +17,7 @@ def kinds(hexstr):
         i += b[i+1]
     return "-".join(out) if out else "00"
 
-# tshark は保護機能(AppArmor)でこの場所を直接開けないので、標準入力から渡す
+# tshark is confined by AppArmor here and cannot open the file itself, so feed it on stdin
 cmd = ["tshark", "-r", "-", "-Y", "tcp.flags.syn==1", "-T", "fields", "-E", "separator=|",
        "-e", "ip.src", "-e", "ip.dst", "-e", "tcp.dstport", "-e", "tcp.flags.ack", "-e", "ip.ttl",
        "-e", "tcp.window_size_value", "-e", "tcp.options", "-e", "tcp.options.mss_val",

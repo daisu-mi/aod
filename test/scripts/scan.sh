@@ -1,5 +1,5 @@
 #!/bin/sh
-# 使い方: scan.sh 番号  その設定に切り替えて nmap を当て、結果を test/results に残す
+# Usage: scan.sh N   select personality N, run nmap -O, save the output in test/results
 cd "$(dirname "$0")"
 k=$1; out=../results/kind$k-nmap.txt
 ./ssh-target.sh "sysctl -q net.inet.tcp.emu_kind=$k >/dev/null" || exit 1

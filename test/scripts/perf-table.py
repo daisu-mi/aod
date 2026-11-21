@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 使い方: perf-table.py  test/perf の結果を、条件ごとの中央値と最小・最大の表にする
+# Usage: perf-table.py [dir]   print median (min-max) per condition from the results in test/perf
 import json, os, re, statistics as st
 import sys
 d = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "../perf")

@@ -1,6 +1,6 @@
 #!/bin/sh
-# 使い方: perf.sh [回数] [出力先]  性能を測り、出力先(既定は test/perf)に残す
-# 条件: none(モジュールなし)、0(読み込んだが切)、6、7、8 を順に回し、これを回数ぶん繰り返す
+# Usage: perf.sh [rounds] [outdir]   measure performance; results go to outdir (default test/perf)
+# Conditions: none (module unloaded), 0 (loaded, off), 6, 7, 8, run in turn; the whole cycle repeats
 cd "$(dirname "$0")"
 rounds=${1:-5}
 out=${2:-../perf}; mkdir -p $out
@@ -24,8 +24,8 @@ while [ $r -le $rounds ]; do
 	for c in none 0 6 7 8; do
 		setcfg $c
 		p=$out/$c-r$r
-		$ip3 -c 10.99.0.2 -t 10 -J > $p-send.json 2>&1       # ホストから仮想マシンへ
-		$ip3 -c 10.99.0.2 -t 10 -J -R > $p-recv.json 2>&1    # 仮想マシンからホストへ
+		$ip3 -c 10.99.0.2 -t 10 -J > $p-send.json 2>&1       # prober to target
+		$ip3 -c 10.99.0.2 -t 10 -J -R > $p-recv.json 2>&1    # target to prober
 		python3 conn.py 5000 > $p-conn.json 2>&1
 		sudo -n ping -q -c 3000 -i 0.002 10.99.0.2 | tail -1 > $p-ping.txt 2>&1
 		echo "round $r cfg $c done"

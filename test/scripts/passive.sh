@@ -1,7 +1,7 @@
 #!/bin/bash
-# 使い方: passive.sh 番号
-# その設定で、ホストから仮想マシンへの接続と、仮想マシンからホストへの接続を 1 回ずつ行い、
-# 流れたパケットを test/passive/kind番号.pcap に残して p0f と JA4T にかける
+# Usage: passive.sh N
+# With personality N, open three connections from the prober to the target and three back,
+# save the packets to test/passive/kindN.pcap, then run p0f and compute JA4T
 cd "$(dirname "$0")"
 k=$1; out=../passive; pcap=$out/kind$k.pcap
 ./ssh-target.sh "sysctl -q net.inet.tcp.emu_kind=$k >/dev/null" || exit 1

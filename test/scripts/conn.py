@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 使い方: conn.py 回数  10.99.0.2 の 9 番へ順につないで切り、かかった時間を JSON で出す
+# Usage: conn.py COUNT   connect to 10.99.0.2 port 9 and close, COUNT times in a row; print timings as JSON
 import json, socket, struct, sys, time
 
 n = int(sys.argv[1])
