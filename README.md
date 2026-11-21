@@ -11,7 +11,7 @@ and source tree of the old version were recovered later and are kept in
 | Directory | Contents |
 |---|---|
 | `kld/` | The current module (FreeBSD 15.1, `pfil(9)` hooks, no change to the kernel source) |
-| `test/` | Scripts used for the measurements, and the raw Nmap output |
+| `test/` | The scripts used for the measurements (`scripts/`) and the raw Nmap output (`results/`) |
 | `legacy/` | The 2001 patch for FreeBSD 4.3, its source tree, and the WIT2001 paper and slides |
 
 ## What it does
@@ -112,7 +112,7 @@ the connections the host opens.
 
 This module changes how a host answers on the network. It is meant for research
 and for defensive use on machines you operate. Try it in a virtual machine
-first; `test/vm/` has the scripts used for that.
+first.
 
 ## Papers
 
