@@ -27,7 +27,7 @@ With the module loaded and a personality selected, the tools report:
 | `net.inet.tcp.emu_kind` | Personality | Nmap 7.98 `-O` | p0f 3.09b (outbound SYN) |
 |---|---|---|---|
 | 0 | off | no exact match (guesses FreeBSD 12–13) | FreeBSD |
-| 6 | Linux, as in the Nmap database | exact: Linux 4.15 – 5.19 | Linux 2.2.x-3.x |
+| 6 | Linux, as in the Nmap database | exact: Linux 4.15 – 5.19, usually with other Linux-based entries (see below) | Linux 2.2.x-3.x |
 | 7 | Linux, as measured on Ubuntu 26.04.1 | no exact match; best guess Linux 4.15 – 5.19 (97%) | Linux 2.2.x-3.x |
 | 8 | Windows 11 | exact: Microsoft Windows 10 1703 or Windows 11 21H2 | Windows NT kernel |
 
@@ -41,6 +41,11 @@ Each personality was compared with a real host on the same test network:
   database ends at Linux 6.0. Personality 7 gets the same non-match, with the
   same list of guesses. Personality 6 follows the database instead and is an
   exact match. Pick 6 to satisfy the tool, 7 to look like a current machine.
+  With 6, Nmap lists every database entry the fingerprint satisfies. Linux
+  4.15 – 5.19 is always first. In most runs OpenWrt 21.02 (Linux 5.4) follows,
+  and often MikroTik RouterOS 7.2 – 7.5 (Linux 5.6.3) as well; both are Linux
+  systems. The fingerprints of these runs differ only in two measured values
+  of the SEQ line. `test/results/kind6-rerun/` holds six such runs.
 
 With personality 8, FIN, NULL and Xmas scans show every port as closed, as they
 do against Windows. SYN and connect scans show the true state with every
