@@ -16,14 +16,22 @@
  *        ack field of bare RST, ICMP echo reply code
  *   in:  replies to odd-flag probes, ECN stripping
  *
- * ISS translation is not here yet.  Only the default vnet is hooked.
+ * ISS translation is not here yet.
+ *
+ * Every network stack (vnet) is hooked and has its own setting, so a jail
+ * with its own stack can look like one system while the host and the other
+ * jails look like others.  A jail sets its own net.inet.tcp.emu_kind;
+ * net.inet.tcp.emu_lock=1 then keeps root inside that jail from changing
+ * it again.
  */
 
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
 #include <sys/epoch.h>
+#include <sys/jail.h>
 #include <sys/module.h>
+#include <sys/proc.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
@@ -55,7 +63,7 @@ VNET_DECLARE(int, tcp_ts_offset_per_conn);
 #define	AOD_WIN4(w)	{ { (w), (w) }, { (w), (w) } }
 
 /*
- * 1 to 5: values from the last 2001 version (src/netinet in daisu-mi/aod).
+ * 1 to 5: values from the last 2001 version (legacy/src/netinet).
  *         FreeBSD (1) is left as the kernel sends it, as in the original.
  * 6, 7:   values from nmap-os-db of nmap 7.98.
  */
@@ -134,29 +142,37 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 	},
 };
 
-static int aod_kind = AOD_EMU_OFF;
-static volatile u_int aod_ipid;		/* next IP id, host byte order */
-static pfil_hook_t aod_out_hook, aod_in_hook;
-static int aod_saved_ts_per_conn = -1;	/* -1: not touched */
+/* One set per network stack. */
+VNET_DEFINE_STATIC(int, aod_kind) = AOD_EMU_OFF;
+VNET_DEFINE_STATIC(int, aod_lock);
+VNET_DEFINE_STATIC(volatile u_int, aod_ipid);	/* next IP id, host order */
+VNET_DEFINE_STATIC(pfil_hook_t, aod_out_hook);
+VNET_DEFINE_STATIC(pfil_hook_t, aod_in_hook);
+VNET_DEFINE_STATIC(int, aod_saved_ts_per_conn) = -1;	/* -1: not touched */
+#define	V_aod_kind		VNET(aod_kind)
+#define	V_aod_lock		VNET(aod_lock)
+#define	V_aod_ipid		VNET(aod_ipid)
+#define	V_aod_out_hook		VNET(aod_out_hook)
+#define	V_aod_in_hook		VNET(aod_in_hook)
+#define	V_aod_saved_ts_per_conn	VNET(aod_saved_ts_per_conn)
 
 /*
  * The kernel gives every connection its own timestamp offset by default.
  * Linux and Windows keep one clock per peer, and nmap measures that.
+ * Works on the current vnet, as everything below does.
  */
 static void
 aod_apply_ts(const struct aod_profile *p)
 {
 
-	CURVNET_SET(vnet0);
 	if (p->ts_per_host) {
-		if (aod_saved_ts_per_conn < 0)
-			aod_saved_ts_per_conn = V_tcp_ts_offset_per_conn;
+		if (V_aod_saved_ts_per_conn < 0)
+			V_aod_saved_ts_per_conn = V_tcp_ts_offset_per_conn;
 		V_tcp_ts_offset_per_conn = 0;
-	} else if (aod_saved_ts_per_conn >= 0) {
-		V_tcp_ts_offset_per_conn = aod_saved_ts_per_conn;
-		aod_saved_ts_per_conn = -1;
+	} else if (V_aod_saved_ts_per_conn >= 0) {
+		V_tcp_ts_offset_per_conn = V_aod_saved_ts_per_conn;
+		V_aod_saved_ts_per_conn = -1;
 	}
-	CURVNET_RESTORE();
 }
 
 static int
@@ -164,23 +180,49 @@ aod_sysctl_kind(SYSCTL_HANDLER_ARGS)
 {
 	int error, new;
 
-	new = aod_kind;
+	new = V_aod_kind;
 	error = sysctl_handle_int(oidp, &new, 0, req);
 	if (error != 0 || req->newptr == NULL)
 		return (error);
 	if (new < AOD_EMU_OFF || new > AOD_EMU_MAX)
 		return (EINVAL);
+	if (V_aod_lock && jailed(req->td->td_ucred))
+		return (EPERM);
 	aod_apply_ts(&aod_profiles[new]);
-	aod_kind = new;
+	V_aod_kind = new;
+	return (0);
+}
+
+/* Once set, nobody inside the jail can change the setting or clear this. */
+static int
+aod_sysctl_lock(SYSCTL_HANDLER_ARGS)
+{
+	int error, new;
+
+	new = V_aod_lock;
+	error = sysctl_handle_int(oidp, &new, 0, req);
+	if (error != 0 || req->newptr == NULL)
+		return (error);
+	if (new != 0 && new != 1)
+		return (EINVAL);
+	if (V_aod_lock && new == 0 && jailed(req->td->td_ucred))
+		return (EPERM);
+	V_aod_lock = new;
 	return (0);
 }
 
 /* Same name as the 2001 version: net.inet.tcp.emu_kind */
 SYSCTL_PROC(_net_inet_tcp, OID_AUTO, emu_kind,
-    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_MPSAFE, NULL, 0, aod_sysctl_kind, "I",
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_MPSAFE | CTLFLAG_VNET, NULL, 0,
+    aod_sysctl_kind, "I",
     "Emulate another kind of tcp stacks (0 off, 1 FreeBSD, 2 NetBSD, "
     "3 Windows, 4 Windows 2000, 5 Cisco, 6 Linux (nmap database), "
     "7 Linux (as measured), 8 Windows 11)");
+SYSCTL_PROC(_net_inet_tcp, OID_AUTO, emu_lock,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_MPSAFE | CTLFLAG_VNET, NULL, 0,
+    aod_sysctl_lock, "I",
+    "Keep root inside a jail from changing emu_kind (cannot be cleared "
+    "from inside)");
 
 /* RFC 1624 incremental update. All values in network byte order. */
 static uint16_t
@@ -219,11 +261,11 @@ aod_next_ipid(const struct aod_profile *p, bool syn)
 
 	stride = p->ipid_stride;
 	if (syn && p->ipid_zero_on_syn) {
-		atomic_store_int(&aod_ipid, stride);
+		atomic_store_int(&V_aod_ipid, stride);
 		return (0);
 	}
 	do {
-		id = atomic_fetchadd_int(&aod_ipid, stride);
+		id = atomic_fetchadd_int(&V_aod_ipid, stride);
 		if (stride > 1)
 			id -= id % stride;
 	} while (stride == 1 && (uint16_t)id == 0);	/* 0 means "not set" */
@@ -437,7 +479,7 @@ aod_check_out(struct mbuf **mp, struct ifnet *ifp __unused, int flags,
 	bool syn, setid;
 	int kind, hlen;
 
-	kind = aod_kind;
+	kind = V_aod_kind;
 	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
 		return (PFIL_PASS);
 	if (flags & PFIL_FWD)		/* local packets only */
@@ -574,7 +616,7 @@ aod_check_in(struct mbuf **mp, struct ifnet *ifp __unused,
 	uint8_t thflags;
 	int kind, hlen;
 
-	kind = aod_kind;
+	kind = V_aod_kind;
 	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
 		return (PFIL_PASS);
 	p = &aod_profiles[kind];
@@ -681,39 +723,42 @@ aod_hook_one(pfil_hook_t *hookp, pfil_mbuf_chk_t fn, int dir,
 	return (error);
 }
 
+/* Runs for every vnet: at load for those that exist, later for new ones. */
 static void
-aod_unhook(void)
-{
-
-	aod_kind = AOD_EMU_OFF;
-	aod_apply_ts(&aod_profiles[AOD_EMU_OFF]);
-	CURVNET_SET(vnet0);
-	if (aod_in_hook != NULL)
-		pfil_remove_hook(aod_in_hook);
-	if (aod_out_hook != NULL)
-		pfil_remove_hook(aod_out_hook);
-	aod_in_hook = aod_out_hook = NULL;
-	CURVNET_RESTORE();
-	/* let packets still inside the hooks finish before the code goes away */
-	NET_EPOCH_WAIT();
-}
-
-static int
-aod_hook(void)
+aod_vnet_init(const void *unused __unused)
 {
 	int error;
 
-	CURVNET_SET(vnet0);
-	error = aod_hook_one(&aod_out_hook, aod_check_out, PFIL_OUT,
+	atomic_store_int(&V_aod_ipid, arc4random());
+	error = aod_hook_one(&V_aod_out_hook, aod_check_out, PFIL_OUT,
 	    "default-out");
 	if (error == 0)
-		error = aod_hook_one(&aod_in_hook, aod_check_in, PFIL_IN,
+		error = aod_hook_one(&V_aod_in_hook, aod_check_in, PFIL_IN,
 		    "default-in");
-	CURVNET_RESTORE();
 	if (error != 0)
-		aod_unhook();
-	return (error);
+		printf("aod: cannot hook this network stack, error %d\n",
+		    error);
 }
+VNET_SYSINIT(aod_vnet_init, SI_SUB_PROTO_FIREWALL, SI_ORDER_ANY,
+    aod_vnet_init, NULL);
+
+/* Runs for every vnet: when it goes away, and for all of them at unload. */
+static void
+aod_vnet_uninit(const void *unused __unused)
+{
+
+	V_aod_kind = AOD_EMU_OFF;
+	aod_apply_ts(&aod_profiles[AOD_EMU_OFF]);
+	if (V_aod_in_hook != NULL)
+		pfil_remove_hook(V_aod_in_hook);
+	if (V_aod_out_hook != NULL)
+		pfil_remove_hook(V_aod_out_hook);
+	V_aod_in_hook = V_aod_out_hook = NULL;
+	/* let packets still inside the hooks finish before the code goes away */
+	NET_EPOCH_WAIT();
+}
+VNET_SYSUNINIT(aod_vnet_uninit, SI_SUB_PROTO_FIREWALL, SI_ORDER_ANY,
+    aod_vnet_uninit, NULL);
 
 static int
 aod_modevent(module_t mod __unused, int type, void *data __unused)
@@ -721,11 +766,8 @@ aod_modevent(module_t mod __unused, int type, void *data __unused)
 
 	switch (type) {
 	case MOD_LOAD:
-		atomic_store_int(&aod_ipid, arc4random());
-		return (aod_hook());
 	case MOD_UNLOAD:
-		aod_unhook();
-		return (0);
+		return (0);	/* the work is done per vnet, above */
 	default:
 		return (EOPNOTSUPP);
 	}

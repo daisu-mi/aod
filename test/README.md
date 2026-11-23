@@ -4,6 +4,9 @@
 paper: one set per personality (`kind0`, `kind6`, `kind7`, `kind8`) and one for
 each real host used for comparison (Ubuntu 26.04.1, Windows 11 build 22621).
 Files ending in `-fp.txt` include the full fingerprint.
+`linux-host-kind8-nmap.txt` is the Linux module on an Ubuntu host. The results
+for jails and containers are in `freebsd/jail/results/` and
+`linux/lxc/results/`.
 
 `scripts/` holds the scripts that produced them. They are a record of the
 method, not a portable test suite: they assume a prober at 10.99.0.1, the

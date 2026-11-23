@@ -1,0 +1,85 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-23 05:07 +0900
+--------------- Timing report ---------------
+  hostgroups: min 1, max 100000
+  rtt-timeouts: init 1000, min 100, max 10000
+  max-scan-delay: TCP 1000, UDP 1000, SCTP 1000
+  parallelism: min 0, max 0
+  max-retries: 10, host-timeout: 0
+  min-rate: 0, max-rate: 0
+---------------------------------------------
+Initiating ARP Ping Scan at 05:07
+Scanning 10.99.0.14 [1 port]
+Packet capture filter (device aodtap1): arp and arp[18:4] = 0xFABDA45D and arp[22:2] = 0x8614
+Completed ARP Ping Scan at 05:07, 0.04s elapsed (1 total hosts)
+Overall sending rates: 23.11 packets / s, 970.58 bytes / s.
+Initiating SYN Stealth Scan at 05:07
+Scanning 10.99.0.14 [2 ports]
+Packet capture filter (device aodtap1): dst host 10.99.0.13 and (icmp or icmp6 or ((tcp or udp or sctp) and (src host 10.99.0.14)))
+Discovered open port 22/tcp on 10.99.0.14
+Completed SYN Stealth Scan at 05:07, 0.01s elapsed (2 total ports)
+Overall sending rates: 186.79 packets / s, 8218.92 bytes / s.
+Packet capture filter (device aodtap1): dst host 10.99.0.13 and (icmp or (tcp and (src host 10.99.0.14)))
+Initiating OS detection (try #1) against 10.99.0.14
+OS detection timingRatio() == (1795378055.672 - 1795378055.172) * 1000 / 500 == 1.000
+Nmap scan report for 10.99.0.14
+Host is up, received arp-response (0.00018s latency).
+Scanned at 2026-11-23 05:07:35 JST for 0s
+
+PORT   STATE  SERVICE REASON
+22/tcp open   ssh     syn-ack ttl 128
+23/tcp closed telnet  reset ttl 128
+MAC Address: 7A:1B:21:32:84:88 (Unknown)
+Device type: general purpose
+Running: Microsoft Windows 10|11
+OS CPE: cpe:/o:microsoft:windows_10 cpe:/o:microsoft:windows_11
+OS details: Microsoft Windows 10 1703 or Windows 11 21H2
+Add IP 0.0.0.0/8 to addrset (trie).
+Add IP 10.0.0.0/8 to addrset (trie).
+Add IP 100.64.0.0/10 to addrset (trie).
+Add IP 127.0.0.0/8 to addrset (trie).
+Add IP 169.254.0.0/16 to addrset (trie).
+Add IP 172.16.0.0/12 to addrset (trie).
+Add IP 192.0.0.0/24 to addrset (trie).
+Add IP 192.0.2.0/24 to addrset (trie).
+Add IP 192.168.0.0/16 to addrset (trie).
+Add IP 198.18.0.0/15 to addrset (trie).
+Add IP 198.51.100.0/24 to addrset (trie).
+Add IP 203.0.113.0/24 to addrset (trie).
+Add IP 240.0.0.0/4 to addrset (trie).
+Add IP 255.255.255.255/-1 to addrset (trie).
+Add IP ::1/-1 to addrset (trie).
+Add IP ::/-1 to addrset (trie).
+Add IP ::ffff:0.0.0.0/96 to addrset (trie).
+Add IP 64:ff9b:1::/48 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 2001::/23 to addrset (trie).
+Add IP 2001:db8::/32 to addrset (trie).
+Add IP 2002::/16 to addrset (trie).
+Add IP 3fff::/20 to addrset (trie).
+Add IP 5f00::/16 to addrset (trie).
+Add IP fc00::/7 to addrset (trie).
+Add IP fe80::/10 to addrset (trie).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/23%OT=22%CT=23%CU=40089%PV=Y%DS=1%DC=D%G=Y%M=7A1B21
+OS:%TM=6B034B87%P=x86_64-pc-linux-gnu)SEQ(SP=104%GCD=1%ISR=10C%TI=I%CI=I%II
+OS:=I%SS=S%TS=A)OPS(O1=M5B4NW8ST11%O2=M5B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW
+OS:8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WIN(W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=
+OS:FFFF%W6=FFDC)ECN(R=Y%DF=Y%T=80%W=FFFF%O=M5B4NW8NNS%CC=N%Q=)T1(R=Y%DF=Y%T
+OS:=80%S=O%A=S+%F=AS%RD=0%Q=)T2(R=Y%DF=Y%T=80%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)T
+OS:3(R=Y%DF=Y%T=80%W=0%S=Z%A=O%F=AR%O=%RD=0%Q=)T4(R=Y%DF=Y%T=80%W=0%S=A%A=O
+OS:%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=
+OS:Y%T=80%W=0%S=A%A=O%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR%O=%
+OS:RD=0%Q=)U1(R=Y%DF=N%T=80%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUD=G)
+OS:IE(R=Y%DFI=N%T=80%CD=Z)
+
+Uptime guess: 1.617 days (since Sat Nov 21 14:19:40 2026)
+Network Distance: 1 hop
+TCP Sequence Prediction: Difficulty=260 (Good luck!)
+IP ID Sequence Generation: Incremental
+Final times for host: srtt: 179 rttvar: 76  to: 100000
+
+Read from /usr/bin/../share/nmap: nmap-mac-prefixes nmap-os-db nmap-protocols nmap-services.
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 1.12 seconds
+           Raw packets sent: 19 (1.534KB) | Rcvd: 19 (1.442KB)

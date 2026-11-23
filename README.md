@@ -1,20 +1,26 @@
 # aod — Anti OS Detection
 
-A FreeBSD kernel module that makes a host answer OS fingerprinting tools as if
-it ran a different operating system.
+A kernel module that makes a host answer OS fingerprinting tools as if it ran a
+different operating system. There is one for FreeBSD and one for Linux.
 
 The first version was a modified FreeBSD 4.3 kernel, described in a 2001 paper.
-This repository holds a rewrite for FreeBSD 15.1 as a loadable module. The patch
-and source tree of the old version were recovered later and are kept in
-`legacy/`.
+This repository holds a rewrite for FreeBSD 15.1 as a loadable module, and a
+version for Linux built from the same personality table. The patch and source
+tree of the old version were recovered later and are kept in `legacy/`.
 
 | Directory | Contents |
 |---|---|
-| `kld/` | The current module (FreeBSD 15.1, `pfil(9)` hooks, no change to the kernel source) |
+| `freebsd/` | The module for FreeBSD 15.1 (`pfil(9)` hooks, no change to the kernel source) |
+| `freebsd/jail/` | Giving each jail its own personality |
+| `linux/` | The module for Linux (netfilter hooks; written against Linux 7.0) |
+| `linux/lxc/` | Giving each container its own personality |
+| `common/` | The personality definitions shared by both modules |
 | `test/` | The scripts used for the measurements (`scripts/`) and the raw Nmap output (`results/`) |
 | `legacy/` | The 2001 patch for FreeBSD 4.3, its source tree, and the WIT2001 paper and slides |
 
 ## What it does
+
+The tables in this section were measured with the FreeBSD module on the host.
 
 With the module loaded and a personality selected, the tools report:
 
@@ -50,7 +56,7 @@ numbers in recognizable ways, and this module does not change sequence numbers.
 On FreeBSD 15.1 with the kernel sources in `/usr/src`:
 
 ```
-cd kld
+cd freebsd
 make
 kldload ./aod.ko
 sysctl net.inet.tcp.emu_kind=8
@@ -62,9 +68,36 @@ While a personality is active the module turns off per-connection TCP timestamp
 offsets (`net.inet.tcp.ts_offset_per_conn`). The previous value is restored
 when the personality is switched off or the module is unloaded.
 
+The setting is kept per network stack. A jail with its own stack can have a
+personality of its own, and can be kept from changing it; see
+[`freebsd/jail/`](freebsd/jail/).
+
+### Linux
+
+With the kernel headers installed:
+
+```
+cd linux
+make
+insmod ./aod_linux.ko
+sysctl -w net.ipv4.tcp_emu_kind=8
+```
+
+To stop: `sysctl -w net.ipv4.tcp_emu_kind=0`, then `rmmod aod_linux`.
+
+While a personality is active the module changes `tcp_timestamps` and
+`tcp_ecn` of the namespace, and puts them back afterwards. The setting is kept
+per network namespace; see [`linux/lxc/`](linux/lxc/) for containers.
+
+The Linux module was tested with personality 8 only. On an Ubuntu 26.04.1
+host (Linux 7.0) and in a container on it, Nmap 7.98 reports an exact match:
+Microsoft Windows 10 1703 or Windows 11 21H2. The other numbers in "What it
+does" and "Cost" were not measured with it.
+
 ## How it works
 
-Two hooks are registered on the IPv4 `pfil` head. The module keeps no
+Two hooks are registered on the IPv4 `pfil` head of each network stack (on
+Linux, two netfilter hooks in each network namespace). The module keeps no
 per-connection state.
 
 - Outbound: TTL, DF, IP ID, the window of SYN and SYN/ACK, the order of TCP
@@ -101,7 +134,7 @@ the connections the host opens.
 - Initial sequence numbers are not changed.
 - IP IDs come from one counter; a real Linux host numbers each connection
   separately, which shows after the handshake.
-- IPv4 only. Only the default vnet.
+- IPv4 only.
 - The window scale can be lowered, not raised.
 - The comparison with real hosts covers one Linux and one Windows machine. On
   Linux the window scale depends on the amount of memory.
@@ -127,7 +160,7 @@ Daisuke Miyamoto — daisuke [ at ] iplove.net
 
 ## License
 
-`kld/` and `test/` are under the BSD 2-Clause license; see `LICENSE`.
+`freebsd/`, `linux/`, `common/` and `test/` are under the BSD 2-Clause license; see `LICENSE`.
 `legacy/` contains files from the FreeBSD 4.3 source tree with modifications;
 each file carries its original license notice.
 
@@ -138,7 +171,9 @@ each file carries its original license notice.
 2001 年ごろに作った OS fingerprint 対策(FreeBSD 4.3 のカーネルパッチ)を、
 FreeBSD 15.1 で読み込めるカーネルモジュールに作り直したものです。
 
-- `kld/` が今のモジュールです。カーネルのソースは書き換えません。
+- `freebsd/` が FreeBSD 15.1 用のモジュールです。カーネルのソースは書き換えません。
+- `freebsd/jail/` は、jail ごとに別の OS に見せる手順です。
+- `linux/` が Linux 用のモジュール、`linux/lxc/` がコンテナごとに使う手順です。Linux 版で確かめたのは 8 だけです。
 - `legacy/` が 2001 年のパッチと、WIT2001 の論文、発表資料です。
 - `sysctl net.inet.tcp.emu_kind=6` と `7` で Linux、`8` で Windows 11 に見せます。`0` で切ります。
 - 6 は nmap のデータベースに合わせた Linux、7 は本物の Ubuntu 26.04.1 に合わせた Linux です。

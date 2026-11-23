@@ -1,0 +1,29 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-23 05:26 +0900
+Nmap scan report for 10.99.0.20
+Host is up (0.00021s latency).
+
+PORT     STATE  SERVICE
+23/tcp   closed telnet
+1524/tcp open   ingreslock
+MAC Address: 58:9C:FC:10:80:B4 (FreeBSD Foundation)
+Aggressive OS guesses: Microsoft Windows 10 Education Edition 1909 (97%), Microsoft Windows 10 1709 - 21H2 (93%), Microsoft Windows 10 21H1 (93%), Microsoft Windows 10 (93%), Microsoft Windows 10 1809 (92%), Microsoft Windows 10 1903 (92%), Microsoft Windows 10 1909 (92%), Microsoft Windows Longhorn (92%), Microsoft Windows 10 1803 (92%), Microsoft Windows 10 1909 - 20H2 (91%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/23%OT=1524%CT=23%CU=38323%PV=Y%DS=1%DC=D%G=Y%M=589C
+OS:FC%TM=6B035012%P=x86_64-pc-linux-gnu)SEQ(SP=102%GCD=1%ISR=10E%TI=I%CI=I%
+OS:II=I%SS=S%TS=U)SEQ(SP=105%GCD=1%ISR=10A%TI=I%CI=I%II=I%SS=S%TS=U)SEQ(SP=
+OS:105%GCD=1%ISR=10D%TI=I%CI=I%II=I%SS=S%TS=U)SEQ(SP=106%GCD=1%ISR=10B%TI=I
+OS:%CI=I%II=I%SS=S%TS=U)SEQ(SP=107%GCD=1%ISR=10B%TI=I%CI=I%II=I%SS=S%TS=U)O
+OS:PS(O1=M5B4NNS%O2=M5B4NNS%O3=M5B4%O4=M5B4NNS%O5=M5B4NNS%O6=M5B4NNS)WIN(W1
+OS:=FF70%W2=FF70%W3=FF70%W4=FF70%W5=FF70%W6=FF70)ECN(R=Y%DF=Y%T=40%W=FF70%O
+OS:=M5B4NNS%CC=N%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=Y%DF=Y%T=80
+OS:%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)T3(R=Y%DF=Y%T=80%W=0%S=Z%A=O%F=AR%O=%RD=0%Q
+OS:=)T4(R=Y%DF=Y%T=80%W=0%S=A%A=O%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=80%W=0%S=Z%A
+OS:=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=80%W=0%S=A%A=O%F=R%O=%RD=0%Q=)T7(R=Y%D
+OS:F=Y%T=80%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=80%IPL=164%UN=0%RIPL
+OS:=G%RID=G%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=80%CD=Z)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.73 seconds
