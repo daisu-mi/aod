@@ -159,6 +159,11 @@ first.
   [`legacy/miyamoto-wit2001.pdf`](legacy/miyamoto-wit2001.pdf)
 - A report on the 2026 rewrite is in preparation.
 
+## Related
+
+[aoi](https://github.com/daisu-mi/aoi) (Anti OS Intrusion) is the companion of
+this module: it records what an intruder does on the host.
+
 ## Contact
 
 Daisuke Miyamoto — daisuke [ at ] iplove.net
