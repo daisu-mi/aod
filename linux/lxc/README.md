@@ -51,6 +51,12 @@ the same closed link.
 - A 50 MB transfer in each direction arrived with the same hash, and no packet
   was dropped for a bad checksum.
 
+The host and the container were later scanned ten times each, before and
+after the container's setting (`results/ten-scans/`). The container with
+setting 8 was an exact match for Microsoft Windows 10 1703 or Windows 11 21H2
+in all ten scans; the host, and the container without the setting, had no
+exact match in any.
+
 Only personality 8 was tested on Linux.
 
 `results/` holds the raw Nmap output.

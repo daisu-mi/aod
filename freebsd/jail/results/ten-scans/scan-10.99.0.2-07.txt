@@ -1,0 +1,29 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-23 17:19 +0900
+Nmap scan report for 10.99.0.2
+Host is up (0.00016s latency).
+
+PORT   STATE  SERVICE
+22/tcp open   ssh
+23/tcp closed telnet
+MAC Address: 58:9C:FC:10:EE:A9 (FreeBSD Foundation)
+Aggressive OS guesses: Android 4.0.1 - 4.0.4 (Linux 3.0) (93%), FreeBSD 12.0-RELEASE - 13.0-RELEASE (92%), FreeBSD 12.2-RELEASE - 12.3-RELEASE (92%), D-Link DIR-300 WAP (92%), Android 2.3.5 - 2.3.7 (Linux 2.6.35) (91%), Tintri OS 3.2 (Linux 3.2) (91%), FreeBSD 12.0-RELEASE - 13.1-RELEASE (91%), FreeBSD 13.0-STABLE (91%), Android 2.2 (Linux 2.6.32) (91%), Android 2.2 - 2.2.1 (Linux 2.6.32) (91%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/23%OT=22%CT=23%CU=30740%PV=Y%DS=1%DC=D%G=Y%M=589CFC
+OS:%TM=6B03F72B%P=x86_64-pc-linux-gnu)SEQ(SP=101%GCD=1%ISR=108%TI=Z%CI=Z%II
+OS:=I%TS=21)SEQ(SP=105%GCD=1%ISR=10D%TI=Z%CI=Z%II=I%TS=21)SEQ(SP=106%GCD=1%
+OS:ISR=108%TI=Z%CI=Z%II=I%TS=21)SEQ(SP=107%GCD=1%ISR=10C%TI=Z%CI=Z%II=I%TS=
+OS:21)SEQ(SP=FD%GCD=1%ISR=108%TI=Z%CI=Z%II=I%TS=22)OPS(O1=M5B4NW8ST11%O2=M5
+OS:B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WIN(
+OS:W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=40%W=FFFF
+OS:%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R
+OS:=Y%DF=Y%T=40%W=FFFF%S=O%A=S+%F=AS%O=M5B4NW8ST11%RD=0%Q=)T4(R=Y%DF=Y%T=40
+OS:%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q
+OS:=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=40%W=0%S=Z%A
+OS:=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%R
+OS:UCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.33 seconds

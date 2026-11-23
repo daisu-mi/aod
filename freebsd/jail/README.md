@@ -58,4 +58,10 @@ Nmap 7.98, `-O`, from a prober on the same closed link.
 - After unloading, the changed kernel variable was back to its old value in
   all three stacks, and no packet was dropped for a bad checksum.
 
+The three addresses were later scanned ten times each
+(`results/ten-scans/`). The host had no exact match in any scan. The Windows
+jail was an exact match for Microsoft Windows 10 1703 or Windows 11 21H2 in
+all ten. For the Linux jail, Linux 4.15 – 5.19 was listed first in all ten;
+nine also listed OpenWrt 21.02, MikroTik RouterOS 7, or both.
+
 `results/` holds the raw Nmap output.
