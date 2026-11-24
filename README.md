@@ -138,11 +138,12 @@ The module keeps no per-connection state.
   that the imitated system treats differently (no flags, SYN+FIN, FIN without
   ACK).
 - IPv6: the hop limit takes the place of the TTL, and the TCP handling is the
-  same code. Three things were added for personality 8 after comparing with
+  same code. Four things were added for personality 8 after comparing with
   the real Windows 11: the window of a SYN/ACK is rounded to the IPv6 minimum
   segment size, an echo request with a nonzero code is answered with code 0,
-  and a solicited neighbor advertisement carries the override flag and the
-  link-layer address. The flow label and other ICMPv6 messages are left as the
+  a solicited neighbor advertisement carries the override flag and the
+  link-layer address, and the acknowledgment field of a bare RST repeats its
+  sequence field. The flow label and other ICMPv6 messages are left as the
   kernel sends them.
 
 ## Cost
@@ -194,8 +195,8 @@ first.
   [`legacy/miyamoto-wit2001.pdf`](legacy/miyamoto-wit2001.pdf)
 - D. Miyamoto, "Anti OS Fingerprinting, Revisited: A Loadable Kernel Module
   for FreeBSD and What Twenty-Five Years Changed", arXiv:2611.28651, 2026.
-  <https://arxiv.org/abs/2611.28651> (written before the Linux module, the
-  per-jail personalities and IPv6 were added)
+  <https://arxiv.org/abs/2611.28651> (covers the FreeBSD module on one
+  network stack)
 
 ## Related
 
