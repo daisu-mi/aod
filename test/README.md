@@ -29,3 +29,7 @@ before use, and scan only hosts you operate.
 | `ja4t.py` | compute JA4T and JA4TS strings from a capture (uses tshark) |
 | `p0f-table.py` | summarize p0f logs |
 | `perf.sh`, `conn.py`, `perf-table.py` | throughput, connection rate and ping; print medians |
+
+`results/ipv6/freebsd/steps/` holds one scan from each stage of the IPv6
+work: `v1` is the IPv4 TCP code alone, `v2` adds the window and the RST
+field, `v3` adds the echo reply and the neighbor advertisement.

@@ -907,14 +907,10 @@ aod_check_in6(struct mbuf **mp, struct ifnet *ifp, int flags __unused,
 
 	m = *mp;
 	hlen = sizeof(struct ip6_hdr);
-	if (p->echo_code0 && m->m_len >= hlen &&
-	    mtod(m, struct ip6_hdr *)->ip6_nxt != IPPROTO_TCP)
-		aod_in6_echo(m);
-	if (m->m_len < hlen + (int)sizeof(struct tcphdr))
+	if (m->m_len < hlen)
 		return (PFIL_PASS);
 	ip6 = mtod(m, struct ip6_hdr *);
-	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION ||
-	    ip6->ip6_nxt != IPPROTO_TCP)
+	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION)
 		return (PFIL_PASS);
 	/* only what is addressed to this host */
 	if (m->m_flags & (M_BCAST | M_MCAST) ||
@@ -923,6 +919,13 @@ aod_check_in6(struct mbuf **mp, struct ifnet *ifp, int flags __unused,
 	dst = ip6->ip6_dst;
 	if (ifp == NULL || in6_setscope(&dst, ifp, NULL) != 0 ||
 	    !in6_localip(&dst))
+		return (PFIL_PASS);
+	if (ip6->ip6_nxt != IPPROTO_TCP) {
+		if (p->echo_code0)
+			aod_in6_echo(m);
+		return (PFIL_PASS);
+	}
+	if (m->m_len < hlen + (int)sizeof(struct tcphdr))
 		return (PFIL_PASS);
 	th = (struct tcphdr *)((char *)ip6 + hlen);
 	thflags = tcp_get_flags(th) & 0xff;
