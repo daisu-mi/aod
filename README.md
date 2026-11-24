@@ -51,6 +51,31 @@ With personality 8, FIN, NULL and Xmas scans show every port as closed, as they
 do against Windows. SYN and connect scans show the true state with every
 personality.
 
+### IPv6
+
+Both modules also work on IPv6. Nmap identifies IPv6 hosts with a separate
+classifier whose known systems are older than those of its IPv4 database, so
+the names differ from the table above. Each row is five scans with
+`nmap -6 -O`; all five gave the same verdict.
+
+| Target | Personality | Nmap 7.98 `-6 -O` |
+|---|---|---|
+| FreeBSD 15.1 with the module | 0, off | no match (guess: FreeBSD 12, 91%) |
+| | 6, Linux | exact: Linux 4.19 |
+| | 8, Windows 11 | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
+| Ubuntu 26.04.1 with the module | 0, off | exact: Linux 4.19 |
+| | 8, Windows 11 | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
+| a real Windows 11 (build 22621) | | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
+
+Personality 8 gets the verdict that the real Windows 11 gets, and personality
+6 on FreeBSD gets the verdict of the real Linux host. Before the IPv6 hooks
+were added, a FreeBSD host set to 8 was still reported as FreeBSD over IPv6
+while it was reported as Windows over IPv4.
+
+A jail with its own network stack (FreeBSD) and a network namespace (Linux)
+keep their own personality over IPv6 as well. The IPv4 verdicts did not
+change. The raw output is in `test/results/ipv6/`.
+
 Values 1 to 5 are the personalities of the 2001 version (FreeBSD, NetBSD,
 Windows, Windows 2000, Cisco). They are kept for reference and do not match
 anything in a current Nmap database: those systems generated initial sequence
@@ -96,14 +121,15 @@ per network namespace; see [`linux/lxc/`](linux/lxc/) for containers.
 
 The Linux module was tested with personality 8 only. On an Ubuntu 26.04.1
 host (Linux 7.0) and in a container on it, Nmap 7.98 reports an exact match:
-Microsoft Windows 10 1703 or Windows 11 21H2. The other numbers in "What it
-does" and "Cost" were not measured with it.
+Microsoft Windows 10 1703 or Windows 11 21H2. The IPv6 result is in the table
+above. The other numbers in "What it does" and "Cost" were not measured with
+it.
 
 ## How it works
 
-Two hooks are registered on the IPv4 `pfil` head of each network stack (on
-Linux, two netfilter hooks in each network namespace). The module keeps no
-per-connection state.
+Two hooks are registered on the IPv4 `pfil` head of each network stack and
+two on the IPv6 head (on Linux, netfilter hooks in each network namespace).
+The module keeps no per-connection state.
 
 - Outbound: TTL, DF, IP ID, the window of SYN and SYN/ACK, the order of TCP
   options, the timestamp option of the host's own SYN, the window scale value,
@@ -111,6 +137,13 @@ per-connection state.
 - Inbound: clears the ECN bits of a SYN, and answers by itself the segments
   that the imitated system treats differently (no flags, SYN+FIN, FIN without
   ACK).
+- IPv6: the hop limit takes the place of the TTL, and the TCP handling is the
+  same code. Three things were added for personality 8 after comparing with
+  the real Windows 11: the window of a SYN/ACK is rounded to the IPv6 minimum
+  segment size, an echo request with a nonzero code is answered with code 0,
+  and a solicited neighbor advertisement carries the override flag and the
+  link-layer address. The flow label and other ICMPv6 messages are left as the
+  kernel sends them.
 
 ## Cost
 
@@ -139,7 +172,9 @@ the connections the host opens.
 - Initial sequence numbers are not changed.
 - IP IDs come from one counter; a real Linux host numbers each connection
   separately, which shows after the handshake.
-- IPv4 only.
+- Over IPv6 only TCP that follows the IPv6 header directly is shaped; packets
+  with extension headers are left alone. Personality 7 and the 2001
+  personalities were not measured over IPv6, and no passive tool was tried.
 - The window scale can be lowered, not raised.
 - The comparison with real hosts covers one Linux and one Windows machine. On
   Linux the window scale depends on the amount of memory.
@@ -157,7 +192,10 @@ first.
 - 宮本大輔, 大江将史, 木村泰司, 門林雄基, "OS Fingerprint 対策手法の実装と評価",
   4th Workshop on Internet Technology (WIT2001), pp. 17–25, 2001 (in Japanese).
   [`legacy/miyamoto-wit2001.pdf`](legacy/miyamoto-wit2001.pdf)
-- A report on the 2026 rewrite is in preparation.
+- D. Miyamoto, "Anti OS Fingerprinting, Revisited: A Loadable Kernel Module
+  for FreeBSD and What Twenty-Five Years Changed", arXiv:2611.28651, 2026.
+  <https://arxiv.org/abs/2611.28651> (written before the Linux module, the
+  per-jail personalities and IPv6 were added)
 
 ## Related
 
@@ -188,4 +226,5 @@ FreeBSD 15.1 で読み込めるカーネルモジュールに作り直したも�
 - `sysctl net.inet.tcp.emu_kind=6` と `7` で Linux、`8` で Windows 11 に見せます。`0` で切ります。
 - 6 は nmap のデータベースに合わせた Linux、7 は本物の Ubuntu 26.04.1 に合わせた Linux です。
 - 8 は、本物の Windows 11 と nmap、p0f、JA4T で同じ結果になることを確かめています。
+- IPv6 にも対応しています。nmap の IPv6 の判定で、8 は本物の Windows 11 と同じ判定、FreeBSD 上の 6 は本物の Linux と同じ判定になります。
 - 研究と防御のための道具です。まず仮想マシンで試してください。

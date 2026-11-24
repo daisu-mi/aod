@@ -9,8 +9,8 @@
  *
  * Written against FreeBSD release/15.1.0 (PFIL_VERSION 2).
  *
- * Everything is done from two pfil hooks on the IPv4 head.  No kernel
- * source is changed.
+ * Everything is done from two pfil hooks on the IPv4 head and two on the
+ * IPv6 head.  No kernel source is changed.
  *
  *   out: TTL, DF, IP id, window and option order on SYN and SYN|ACK,
  *        ack field of bare RST, ICMP echo reply code
@@ -42,6 +42,7 @@
 
 #include <net/if.h>
 #include <net/if_var.h>
+#include <net/ethernet.h>
 #include <net/pfil.h>
 #include <net/vnet.h>
 
@@ -54,6 +55,11 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/tcp_var.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <netinet6/in6_var.h>
+#include <netinet6/ip6_var.h>
+#include <netinet6/scope6_var.h>
 
 #include "aod.h"
 
@@ -115,6 +121,13 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 	[AOD_EMU_WIN11] = {
 		.kind = AOD_EMU_WIN11,
 		.synack_win = { { 0xff70, 0xffff }, { 0xffdc, 0xffff } },
+		/*
+		 * Windows rounds 65535 down to a multiple of the smallest
+		 * segment it allows: 536 (524 with timestamps) over IPv4,
+		 * 1220 (1208) over IPv6.  0xfed0 is measured on Windows 11;
+		 * 0xfc94 follows from the rule and is not measured.
+		 */
+		.synack_win6 = { { 0xfc94, 0xffff }, { 0xfed0, 0xffff } },
 		.syn_win = 0xfaf0,
 		.ttl = 128, .icmp_ttl = 128,
 		.ipid_stride = 1,
@@ -124,7 +137,8 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 		.strip_ts = 1,
 		.null_reply = AOD_NULL_RSTACK,
 		.synfin_reply = AOD_SYNFIN_RSTACK, .rst_noack = 1,
-		.rst_ack_other = 1, .echo_code0 = 1,
+		.rst_ack_other = 1, .rst_ack_seq6 = 1, .echo_code0 = 1,
+		.na_lladdr = 1,
 	},
 	/*
 	 * A 2 GB Ubuntu 26.04.1 guest as we measured it: window scale 8
@@ -148,12 +162,16 @@ VNET_DEFINE_STATIC(int, aod_lock);
 VNET_DEFINE_STATIC(volatile u_int, aod_ipid);	/* next IP id, host order */
 VNET_DEFINE_STATIC(pfil_hook_t, aod_out_hook);
 VNET_DEFINE_STATIC(pfil_hook_t, aod_in_hook);
+VNET_DEFINE_STATIC(pfil_hook_t, aod_out6_hook);
+VNET_DEFINE_STATIC(pfil_hook_t, aod_in6_hook);
 VNET_DEFINE_STATIC(int, aod_saved_ts_per_conn) = -1;	/* -1: not touched */
 #define	V_aod_kind		VNET(aod_kind)
 #define	V_aod_lock		VNET(aod_lock)
 #define	V_aod_ipid		VNET(aod_ipid)
 #define	V_aod_out_hook		VNET(aod_out_hook)
 #define	V_aod_in_hook		VNET(aod_in_hook)
+#define	V_aod_out6_hook		VNET(aod_out6_hook)
+#define	V_aod_in6_hook		VNET(aod_in6_hook)
 #define	V_aod_saved_ts_per_conn	VNET(aod_saved_ts_per_conn)
 
 /*
@@ -365,9 +383,11 @@ aod_opts_emit(int order, const struct aod_opts *o, uint8_t *buf)
  * fixed up.
  */
 static void
-aod_out_tcp(const struct aod_profile *p, struct mbuf *m, struct ip *ip,
-    int hlen)
+aod_out_tcp(const struct aod_profile *p, struct mbuf *m, void *iph,
+    int hlen, bool v6)
 {
+	struct ip *ip = v6 ? NULL : iph;
+	struct ip6_hdr *ip6 = v6 ? iph : NULL;
 	int newlen, tcplen;
 	struct aod_opts o;
 	struct tcphdr *th;
@@ -379,18 +399,24 @@ aod_out_tcp(const struct aod_profile *p, struct mbuf *m, struct ip *ip,
 
 	if (m->m_len < hlen + (int)sizeof(struct tcphdr))
 		return;
-	th = (struct tcphdr *)((char *)ip + hlen);
+	th = (struct tcphdr *)((char *)iph + hlen);
 	thflags = tcp_get_flags(th) & (TH_SYN | TH_ACK | TH_FIN | TH_RST);
-	sump = (m->m_pkthdr.csum_flags & CSUM_TCP) != 0 ? NULL : &th->th_sum;
+	sump = (m->m_pkthdr.csum_flags & (v6 ? CSUM_TCP_IPV6 : CSUM_TCP)) != 0 ?
+	    NULL : &th->th_sum;
 
-	if (p->set_df == AOD_DF_ON)
-		ip->ip_off |= htons(IP_DF);
-	else if (p->set_df == AOD_DF_OFF)
-		ip->ip_off &= ~htons(IP_DF);
+	if (!v6) {
+		if (p->set_df == AOD_DF_ON)
+			ip->ip_off |= htons(IP_DF);
+		else if (p->set_df == AOD_DF_OFF)
+			ip->ip_off &= ~htons(IP_DF);
+	}
 
 	/* T4 and T6 of nmap: Windows leaves something in the ack field */
 	if (p->rst_ack_other && thflags == TH_RST && th->th_ack == 0) {
-		ack = arc4random() | htonl(0x00010000);
+		if (v6 && p->rst_ack_seq6)
+			ack = th->th_seq;
+		else
+			ack = arc4random() | htonl(0x00010000);
 		aod_replace((uint8_t *)&th->th_ack, (uint8_t *)&ack, 4, sump);
 	}
 
@@ -418,7 +444,8 @@ aod_out_tcp(const struct aod_profile *p, struct mbuf *m, struct ip *ip,
 			else if (newlen < optlen && (newlen & 3) == 0 &&
 			    sump == NULL && m->m_next == NULL &&
 			    m->m_len == hlen + tcplen &&
-			    ntohs(ip->ip_len) == hlen + tcplen) {
+			    (v6 ? ntohs(ip6->ip6_plen) == tcplen :
+			    ntohs(ip->ip_len) == hlen + tcplen)) {
 				/*
 				 * Shorter options on a segment without data:
 				 * cut the tail.  The checksum is still
@@ -429,15 +456,26 @@ aod_out_tcp(const struct aod_profile *p, struct mbuf *m, struct ip *ip,
 				tcplen = (int)sizeof(struct tcphdr) + newlen;
 				th->th_off = tcplen >> 2;
 				m->m_len = m->m_pkthdr.len = hlen + tcplen;
-				ip->ip_len = htons(hlen + tcplen);
-				th->th_sum = in_pseudo(ip->ip_src.s_addr,
-				    ip->ip_dst.s_addr,
-				    htons(IPPROTO_TCP + tcplen));
+				if (v6) {
+					ip6->ip6_plen = htons(tcplen);
+					th->th_sum = in6_cksum_pseudo(ip6,
+					    tcplen, IPPROTO_TCP, 0);
+				} else {
+					ip->ip_len = htons(hlen + tcplen);
+					th->th_sum = in_pseudo(ip->ip_src.s_addr,
+					    ip->ip_dst.s_addr,
+					    htons(IPPROTO_TCP + tcplen));
+				}
 			}
 		}
 	}
 
-	win = (thflags & TH_ACK) != 0 ? p->synack_win[o.ts][o.ws] : p->syn_win;
+	if ((thflags & TH_ACK) == 0)
+		win = p->syn_win;
+	else if (v6 && p->synack_win6[o.ts][o.ws] != 0)
+		win = p->synack_win6[o.ts][o.ws];
+	else
+		win = p->synack_win[o.ts][o.ws];
 	if (win != 0) {
 		new16 = htons(win);
 		aod_replace((uint8_t *)&th->th_win, (uint8_t *)&new16, 2,
@@ -507,7 +545,7 @@ aod_check_out(struct mbuf **mp, struct ifnet *ifp __unused, int flags,
 	syn = false;
 	setid = p->ipid_stride != 0 && !p->ipid_tcp_only;
 	if (ip->ip_p == IPPROTO_TCP) {
-		aod_out_tcp(p, m, ip, hlen);
+		aod_out_tcp(p, m, ip, hlen, false);
 		if (m->m_len >= hlen + (int)sizeof(struct tcphdr)) {
 			thflags = tcp_get_flags((struct tcphdr *)((char *)ip +
 			    hlen));
@@ -694,14 +732,258 @@ drop:
 	return (PFIL_DROPPED);
 }
 
+
+/*
+ * IPv6.  Only packets whose TCP header follows the IPv6 header directly are
+ * touched.  Neighbor discovery leaves with hop limit 255 and is therefore
+ * never changed by the hop limit rule below.
+ */
+/*
+ * Windows answers a neighbor solicitation that carries no link-layer
+ * address with the override flag set and its own address attached.
+ * FreeBSD sends neither in that case.  The checksum is final here.
+ */
+static void
+aod_out6_na(struct mbuf *m, struct ifnet *ifp)
+{
+	struct ip6_hdr *ip6;
+	struct nd_neighbor_advert *na;
+	uint8_t opt[8];
+	int len;
+
+	len = sizeof(*ip6) + sizeof(*na);
+	if (ifp == NULL || if_getaddrlen(ifp) != ETHER_ADDR_LEN ||
+	    m->m_pkthdr.len != len || m->m_len < len)
+		return;
+	na = (struct nd_neighbor_advert *)(mtod(m, struct ip6_hdr *) + 1);
+	if (na->nd_na_type != ND_NEIGHBOR_ADVERT ||
+	    (na->nd_na_flags_reserved & ND_NA_FLAG_SOLICITED) == 0)
+		return;
+	opt[0] = ND_OPT_TARGET_LINKADDR;
+	opt[1] = 1;
+	memcpy(opt + 2, if_getlladdr(ifp), ETHER_ADDR_LEN);
+	if (m_append(m, sizeof(opt), opt) == 0)
+		return;
+	ip6 = mtod(m, struct ip6_hdr *);
+	na = (struct nd_neighbor_advert *)(ip6 + 1);
+	na->nd_na_flags_reserved |= ND_NA_FLAG_OVERRIDE;
+	ip6->ip6_plen = htons(sizeof(*na) + sizeof(opt));
+	na->nd_na_cksum = 0;
+	na->nd_na_cksum = in6_cksum(m, IPPROTO_ICMPV6, sizeof(*ip6),
+	    sizeof(*na) + sizeof(opt));
+}
+
+/*
+ * FreeBSD drops an echo request whose code is not 0.  Windows answers it
+ * with code 0, so the request is put right before the kernel sees it.
+ * One hop-by-hop header in front is followed, as nmap sends it.
+ */
+static void
+aod_in6_echo(struct mbuf *m)
+{
+	struct ip6_hdr *ip6;
+	struct ip6_hbh *hbh;
+	struct icmp6_hdr *icmp6;
+	uint8_t fixed[2];
+	int nxt, off;
+
+	ip6 = mtod(m, struct ip6_hdr *);
+	nxt = ip6->ip6_nxt;
+	off = sizeof(*ip6);
+	if (nxt == IPPROTO_HOPOPTS) {
+		if (m->m_len < off + (int)sizeof(*hbh))
+			return;
+		hbh = (struct ip6_hbh *)((char *)ip6 + off);
+		nxt = hbh->ip6h_nxt;
+		off += (hbh->ip6h_len + 1) << 3;
+	}
+	if (nxt != IPPROTO_ICMPV6 || m->m_len < off + (int)sizeof(*icmp6) ||
+	    !M_WRITABLE(m))
+		return;
+	icmp6 = (struct icmp6_hdr *)((char *)ip6 + off);
+	if (icmp6->icmp6_type != ICMP6_ECHO_REQUEST || icmp6->icmp6_code == 0)
+		return;
+	fixed[0] = ICMP6_ECHO_REQUEST;
+	fixed[1] = 0;
+	aod_replace((uint8_t *)icmp6, fixed, 2, &icmp6->icmp6_cksum);
+}
+
+static pfil_return_t
+aod_check_out6(struct mbuf **mp, struct ifnet *ifp, int flags,
+    void *ruleset __unused, struct inpcb *inp __unused)
+{
+	const struct aod_profile *p;
+	struct mbuf *m;
+	struct ip6_hdr *ip6;
+	uint8_t hlim;
+	int kind;
+
+	kind = V_aod_kind;
+	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
+		return (PFIL_PASS);
+	if (flags & PFIL_FWD)		/* local packets only */
+		return (PFIL_PASS);
+	p = &aod_profiles[kind];
+
+	m = *mp;
+	if (m->m_len < (int)sizeof(struct ip6_hdr) || !M_WRITABLE(m))
+		return (PFIL_PASS);
+	ip6 = mtod(m, struct ip6_hdr *);
+	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION ||
+	    (m->m_pkthdr.csum_flags & CSUM_TSO) != 0)
+		return (PFIL_PASS);
+
+	hlim = ip6->ip6_nxt == IPPROTO_ICMPV6 ? p->icmp_ttl : p->ttl;
+	if (hlim != 0 && ip6->ip6_hlim == V_ip6_defhlim)
+		ip6->ip6_hlim = hlim;
+
+	if (ip6->ip6_nxt == IPPROTO_TCP)
+		aod_out_tcp(p, m, ip6, sizeof(struct ip6_hdr), true);
+	else if (ip6->ip6_nxt == IPPROTO_ICMPV6 && p->na_lladdr)
+		aod_out6_na(m, ifp);
+	return (PFIL_PASS);
+}
+
+/* As aod_tcp_reply(), for IPv6.  ifp gives link-local addresses their zone. */
+static void
+aod_tcp_reply6(const struct ip6_hdr *oip6, const struct tcphdr *oth,
+    struct ifnet *ifp, uint32_t seq, uint32_t ack, uint8_t thflags)
+{
+	struct mbuf *m;
+	struct ip6_hdr *ip6;
+	struct tcphdr *th;
+	int len;
+
+	len = sizeof(struct ip6_hdr) + sizeof(struct tcphdr);
+	m = m_gethdr(M_NOWAIT, MT_DATA);
+	if (m == NULL)
+		return;
+	m->m_data += max_linkhdr;
+	m->m_len = m->m_pkthdr.len = len;
+	ip6 = mtod(m, struct ip6_hdr *);
+	memset(ip6, 0, len);
+	ip6->ip6_vfc = IPV6_VERSION;
+	ip6->ip6_plen = htons(sizeof(struct tcphdr));
+	ip6->ip6_nxt = IPPROTO_TCP;
+	ip6->ip6_hlim = V_ip6_defhlim;
+	ip6->ip6_src = oip6->ip6_dst;
+	ip6->ip6_dst = oip6->ip6_src;
+	if (ifp != NULL && (in6_setscope(&ip6->ip6_src, ifp, NULL) != 0 ||
+	    in6_setscope(&ip6->ip6_dst, ifp, NULL) != 0)) {
+		m_freem(m);
+		return;
+	}
+	th = (struct tcphdr *)(ip6 + 1);
+	th->th_sport = oth->th_dport;
+	th->th_dport = oth->th_sport;
+	th->th_seq = seq;
+	th->th_ack = ack;
+	th->th_off = sizeof(struct tcphdr) >> 2;
+	tcp_set_flags(th, thflags);
+	th->th_sum = in6_cksum_pseudo(ip6, sizeof(struct tcphdr),
+	    IPPROTO_TCP, 0);
+	m->m_pkthdr.csum_flags = CSUM_TCP_IPV6;
+	m->m_pkthdr.csum_data = offsetof(struct tcphdr, th_sum);
+	(void)ip6_output(m, NULL, NULL, 0, NULL, NULL, NULL);
+}
+
+static pfil_return_t
+aod_check_in6(struct mbuf **mp, struct ifnet *ifp, int flags __unused,
+    void *ruleset __unused, struct inpcb *inp __unused)
+{
+	const struct aod_profile *p;
+	struct mbuf *m;
+	struct ip6_hdr *ip6;
+	struct tcphdr *th;
+	struct in6_addr dst;
+	uint16_t old, new;
+	uint8_t thflags;
+	int kind, hlen;
+
+	kind = V_aod_kind;
+	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
+		return (PFIL_PASS);
+	p = &aod_profiles[kind];
+
+	m = *mp;
+	hlen = sizeof(struct ip6_hdr);
+	if (p->echo_code0 && m->m_len >= hlen &&
+	    mtod(m, struct ip6_hdr *)->ip6_nxt != IPPROTO_TCP)
+		aod_in6_echo(m);
+	if (m->m_len < hlen + (int)sizeof(struct tcphdr))
+		return (PFIL_PASS);
+	ip6 = mtod(m, struct ip6_hdr *);
+	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION ||
+	    ip6->ip6_nxt != IPPROTO_TCP)
+		return (PFIL_PASS);
+	/* only what is addressed to this host */
+	if (m->m_flags & (M_BCAST | M_MCAST) ||
+	    IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst))
+		return (PFIL_PASS);
+	dst = ip6->ip6_dst;
+	if (ifp == NULL || in6_setscope(&dst, ifp, NULL) != 0 ||
+	    !in6_localip(&dst))
+		return (PFIL_PASS);
+	th = (struct tcphdr *)((char *)ip6 + hlen);
+	thflags = tcp_get_flags(th) & 0xff;
+
+	if ((thflags & (TH_SYN | TH_FIN | TH_RST | TH_ACK | TH_PUSH |
+	    TH_URG)) == 0 && p->null_reply != AOD_NULL_LEAVE) {
+		aod_tcp_reply6(ip6, th, ifp,
+		    p->null_reply == AOD_NULL_RSTACK_SEQ ? th->th_ack : 0,
+		    th->th_seq, TH_RST | TH_ACK);
+		goto drop;
+	}
+
+	if (p->rst_noack && (thflags & (TH_SYN | TH_RST | TH_ACK)) == 0) {
+		int tlen;
+
+		tlen = (int)ntohs(ip6->ip6_plen) - (th->th_off << 2);
+		if (tlen < 0)
+			tlen = 0;
+		if (thflags & TH_FIN)
+			tlen++;
+		aod_tcp_reply6(ip6, th, ifp, 0,
+		    htonl(ntohl(th->th_seq) + tlen), TH_RST | TH_ACK);
+		goto drop;
+	}
+
+	if ((thflags & (TH_SYN | TH_FIN | TH_RST | TH_ACK)) ==
+	    (TH_SYN | TH_FIN)) {
+		if (p->synfin_reply == AOD_SYNFIN_RSTACK)
+			aod_tcp_reply6(ip6, th, ifp, 0,
+			    htonl(ntohl(th->th_seq) + 2), TH_RST | TH_ACK);
+		if (p->synfin_reply != AOD_SYNFIN_LEAVE)
+			goto drop;
+	}
+
+	if (p->no_ecn && (thflags & (TH_SYN | TH_ACK | TH_RST)) == TH_SYN &&
+	    (thflags & (TH_ECE | TH_CWR)) != 0 && M_WRITABLE(m)) {
+		memcpy(&old, (char *)th + 12, 2);
+		tcp_set_flags(th, tcp_get_flags(th) & ~(TH_ECE | TH_CWR));
+		memcpy(&new, (char *)th + 12, 2);
+		th->th_sum = aod_cksum_fixup(th->th_sum, old, new);
+	}
+
+	if (p->refuse_ts && (thflags & (TH_SYN | TH_ACK | TH_RST)) == TH_SYN &&
+	    M_WRITABLE(m))
+		aod_in_strip_ts(m, th, hlen);
+	return (PFIL_PASS);
+
+drop:
+	m_freem(m);
+	*mp = NULL;
+	return (PFIL_DROPPED);
+}
+
 static int
 aod_hook_one(pfil_hook_t *hookp, pfil_mbuf_chk_t fn, int dir,
-    const char *name)
+    const char *name, bool v6)
 {
 	struct pfil_hook_args pha = {
 		.pa_version = PFIL_VERSION,
 		.pa_modname = "aod",
-		.pa_type = PFIL_TYPE_IP4,
+		.pa_type = v6 ? PFIL_TYPE_IP6 : PFIL_TYPE_IP4,
 		.pa_mbuf_chk = fn,
 		.pa_flags = dir,
 		.pa_rulname = name,
@@ -713,7 +995,7 @@ aod_hook_one(pfil_hook_t *hookp, pfil_mbuf_chk_t fn, int dir,
 	int error;
 
 	*hookp = pfil_add_hook(&pha);
-	pla.pa_head = V_inet_pfil_head;
+	pla.pa_head = v6 ? V_inet6_pfil_head : V_inet_pfil_head;
 	pla.pa_hook = *hookp;
 	error = pfil_link(&pla);
 	if (error != 0) {
@@ -731,10 +1013,16 @@ aod_vnet_init(const void *unused __unused)
 
 	atomic_store_int(&V_aod_ipid, arc4random());
 	error = aod_hook_one(&V_aod_out_hook, aod_check_out, PFIL_OUT,
-	    "default-out");
+	    "default-out", false);
 	if (error == 0)
 		error = aod_hook_one(&V_aod_in_hook, aod_check_in, PFIL_IN,
-		    "default-in");
+		    "default-in", false);
+	if (error == 0)
+		error = aod_hook_one(&V_aod_out6_hook, aod_check_out6, PFIL_OUT,
+		    "default-out6", true);
+	if (error == 0)
+		error = aod_hook_one(&V_aod_in6_hook, aod_check_in6, PFIL_IN,
+		    "default-in6", true);
 	if (error != 0)
 		printf("aod: cannot hook this network stack, error %d\n",
 		    error);
@@ -753,7 +1041,12 @@ aod_vnet_uninit(const void *unused __unused)
 		pfil_remove_hook(V_aod_in_hook);
 	if (V_aod_out_hook != NULL)
 		pfil_remove_hook(V_aod_out_hook);
+	if (V_aod_in6_hook != NULL)
+		pfil_remove_hook(V_aod_in6_hook);
+	if (V_aod_out6_hook != NULL)
+		pfil_remove_hook(V_aod_out6_hook);
 	V_aod_in_hook = V_aod_out_hook = NULL;
+	V_aod_in6_hook = V_aod_out6_hook = NULL;
 	/* let packets still inside the hooks finish before the code goes away */
 	NET_EPOCH_WAIT();
 }

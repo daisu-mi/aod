@@ -1,0 +1,100 @@
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-24 14:25 +0900
+--------------- Timing report ---------------
+  hostgroups: min 1, max 100000
+  rtt-timeouts: init 1000, min 100, max 10000
+  max-scan-delay: TCP 1000, UDP 1000, SCTP 1000
+  parallelism: min 0, max 0
+  max-retries: 10, host-timeout: 0
+  min-rate: 0, max-rate: 0
+---------------------------------------------
+Initiating ND Ping Scan at 14:25
+Scanning fe80::7fa0:5199:5227:d34d [1 port]
+Packet capture filter (device aodtap2): icmp6 and ip6[6:1] = 58 and ip6[40:1] = 136
+Completed ND Ping Scan at 14:25, 0.05s elapsed (1 total hosts)
+Overall sending rates: 20.99 packets / s, 1511.27 bytes / s.
+Initiating SYN Stealth Scan at 14:25
+Scanning fe80::7fa0:5199:5227:d34d [2 ports]
+Packet capture filter (device aodtap2): dst host fe80::807:f9ff:fe25:a9de and (icmp or icmp6 or ((tcp or udp or sctp) and (src host fe80::7fa0:5199:5227:d34d)))
+Discovered open port 135/tcp on fe80::7fa0:5199:5227:d34d
+Completed SYN Stealth Scan at 14:25, 0.01s elapsed (2 total ports)
+Overall sending rates: 276.17 packets / s, 17674.68 bytes / s.
+Starting IPv6 OS Scan...
+[FPEngine] Interface=aodtap2 BPF:dst host fe80::807:f9ff:fe25:a9de and (src host fe80::7fa0:5199:5227:d34d)
+IPv6 OS Scan completed.
+Nmap scan report for fe80::7fa0:5199:5227:d34d
+Host is up, received nd-response (0.00040s latency).
+Scanned at 2026-11-24 14:25:12 JST for 0s
+
+PORT    STATE  SERVICE REASON
+23/tcp  closed telnet  reset ttl 128
+135/tcp open   msrpc   syn-ack ttl 128
+MAC Address: 52:54:00:A0:D0:0A (QEMU virtual NIC)
+Device type: general purpose
+Running: Microsoft Windows Vista|7|2008|8.1
+OS CPE: cpe:/o:microsoft:windows_vista cpe:/o:microsoft:windows_7::sp1 cpe:/o:microsoft:windows_server_2008:r2 cpe:/o:microsoft:windows_8.1
+OS details: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1
+Add IP 0.0.0.0/8 to addrset (trie).
+Add IP 10.0.0.0/8 to addrset (trie).
+Add IP 100.64.0.0/10 to addrset (trie).
+Add IP 127.0.0.0/8 to addrset (trie).
+Add IP 169.254.0.0/16 to addrset (trie).
+Add IP 172.16.0.0/12 to addrset (trie).
+Add IP 192.0.0.0/24 to addrset (trie).
+Add IP 192.0.2.0/24 to addrset (trie).
+Add IP 192.168.0.0/16 to addrset (trie).
+Add IP 198.18.0.0/15 to addrset (trie).
+Add IP 198.51.100.0/24 to addrset (trie).
+Add IP 203.0.113.0/24 to addrset (trie).
+Add IP 240.0.0.0/4 to addrset (trie).
+Add IP 255.255.255.255/-1 to addrset (trie).
+Add IP ::1/-1 to addrset (trie).
+Add IP ::/-1 to addrset (trie).
+Add IP ::ffff:0.0.0.0/96 to addrset (trie).
+Add IP 64:ff9b:1::/48 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 100::/64 to addrset (trie).
+Add IP 2001::/23 to addrset (trie).
+Add IP 2001:db8::/32 to addrset (trie).
+Add IP 2002::/16 to addrset (trie).
+Add IP 3fff::/20 to addrset (trie).
+Add IP 5f00::/16 to addrset (trie).
+Add IP fc00::/7 to addrset (trie).
+Add IP fe80::/10 to addrset (trie).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=6%D=11/24%OT=135%CT=23%CU=38009%PV=Y%DS=1%DC=D%G=Y%M=5254
+OS:00%TM=6B051FB9%P=x86_64-pc-linux-gnu)S1(P=600f95bb00280680XX{32}0087a58
+OS:2a1557788f094c169a012ffff86bc0000020405a0010303080402080a0f92a312ff{4}%
+OS:ST=0.06068%RT=0.061067)S2(P=600cf03200280680XX{32}0087a5839ba99b4df094c
+OS:16aa012ffff683d0000020405a0010303080402080a0f92a376ff{4}%ST=0.160663%RT
+OS:=0.161012)S3(P=600fdd6800280680XX{32}0087a5844db620f3f094c16ba012ffff33
+OS:260000020405a0010303080101080a0f92a3daff{4}%ST=0.260658%RT=0.261391)S4(
+OS:P=6005813a00280680XX{32}0087a5856d05a707f094c16ca012ffff8a5b0000020405a
+OS:0010303080402080a0f92a43eff{4}%ST=0.360659%RT=0.36138)S5(P=600e346d0028
+OS:0680XX{32}0087a586e2c075f6f094c16da012ffff454b0000020405a00103030804020
+OS:80a0f92a4a2ff{4}%ST=0.46064%RT=0.461323)S6(P=600c729600240680XX{32}0087
+OS:a587b4317744f094c16e9012fed087640000020405a00402080a0f92a506ff{4}%ST=0.
+OS:56064%RT=0.561336)IE1(P=6000{4}803a80XX{32}810034bbabcd00{122}%ST=0.606
+OS:453%RT=0.606814)IE2(P=6000{4}583a80XX{32}0401362400{3}28600123450028002
+OS:bXX{32}3c00010400{4}2b00010400{12}3a00010400{4}80003632abcd0001%ST=0.65
+OS:5934%RT=0.656317)NS(P=6000{4}203affXX{32}88005fb86000{3}XX{16}020152540
+OS:0a0d00a%ST=0.705444%RT=0.705786)U1(P=6000{3}01643a80XX{32}0104cb4000{4}
+OS:600123450134112bXX{32}a4e594790134bd0143{300}%ST=1.30085%RT=1.30124)TEC
+OS:N(P=600cf96e00200680XX{32}0087a5888586c985f094c16f8012ffff2a38000002040
+OS:5a00103030801010402%ST=0.804029%RT=0.804744)T2(P=6000{4}140680XX{32}008
+OS:7a58900{4}f094c16f50140000b9ff0000%ST=0.853865%RT=0.854192)T3(P=6000{4}
+OS:140680XX{32}0087a58a00{4}f094c17250140000b9fb0000%ST=0.903305%RT=0.9036
+OS:9)T4(P=6000{4}140680XX{32}0087a58bbbe61eebbbe61eeb50040000b66e0000%ST=0
+OS:.952804%RT=0.95314)T5(P=6000{4}140680XX{32}0017a58c00{4}f094c1735014000
+OS:0ba680000%ST=1.00226%RT=1.00251)T6(P=6000{4}140680XX{32}0017a58d257c58e
+OS:1257c58e1500400006fc50000%ST=1.05163%RT=1.05203)T7(P=6000{4}140680XX{32
+OS:}0017a58e00{4}f094c17550140000ba640000%ST=1.10115%RT=1.10151)EXTRA(FL=1
+OS:2345)
+
+Network Distance: 1 hop
+Final times for host: srtt: 399 rttvar: 2845  to: 100000
+
+Read from /usr/bin/../share/nmap: nmap-mac-prefixes nmap-protocols nmap-services.
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 1.54 seconds
+           Raw packets sent: 21 (2.240KB) | Rcvd: 3 (196B)

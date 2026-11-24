@@ -17,6 +17,10 @@
  *              ack field of bare RST, ICMP echo reply code
  *   LOCAL_IN:  replies to odd-flag probes
  *
+ * The same two hooks exist for IPv6: hop limit, window and option order
+ * going out, replies to odd-flag probes coming in.  The flow label and
+ * ICMPv6 are left as the kernel sends them.
+ *
  * The timestamp clock and ECN are switched with the namespace's own
  * tcp_timestamps and tcp_ecn settings, and put back afterwards.
  *
@@ -29,19 +33,27 @@
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/icmp.h>
+#include <linux/icmpv6.h>
+#include <linux/etherdevice.h>
 #include <linux/random.h>
 #include <linux/sysctl.h>
 #include <linux/capability.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6.h>
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
 #include <net/ip.h>
 #include <net/tcp.h>
 #include <net/route.h>
 #include <net/checksum.h>
+#include <net/ipv6.h>
+#include <net/ip6_route.h>
+#include <net/ip6_checksum.h>
+#include <net/ndisc.h>
 
 #include "aod.h"
 
@@ -100,6 +112,13 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 	[AOD_EMU_WIN11] = {
 		.kind = AOD_EMU_WIN11,
 		.synack_win = { { 0xff70, 0xffff }, { 0xffdc, 0xffff } },
+		/*
+		 * Windows rounds 65535 down to a multiple of the smallest
+		 * segment it allows: 536 (524 with timestamps) over IPv4,
+		 * 1220 (1208) over IPv6.  0xfed0 is measured on Windows 11;
+		 * 0xfc94 follows from the rule and is not measured.
+		 */
+		.synack_win6 = { { 0xfc94, 0xffff }, { 0xfed0, 0xffff } },
 		.syn_win = 0xfaf0,
 		.ttl = 128, .icmp_ttl = 128,
 		.ipid_stride = 1,
@@ -109,7 +128,8 @@ static const struct aod_profile aod_profiles[AOD_EMU_MAX + 1] = {
 		.strip_ts = 1,
 		.null_reply = AOD_NULL_RSTACK,
 		.synfin_reply = AOD_SYNFIN_RSTACK, .rst_noack = 1,
-		.rst_ack_other = 1, .echo_code0 = 1,
+		.rst_ack_other = 1, .rst_ack_seq6 = 1, .echo_code0 = 1,
+		.na_lladdr = 1,
 	},
 	/*
 	 * A 2 GB Ubuntu 26.04.1 guest as we measured it: window scale 8
@@ -322,7 +342,7 @@ aod_opts_emit(int order, const struct aod_opts *o, uint8_t *buf)
 	return (cp - buf);
 }
 
-/* Outbound TCP. */
+/* Outbound TCP.  iph is NULL for IPv6. */
 static void
 aod_out_tcp(const struct aod_profile *p, struct sk_buff *skb,
     struct iphdr *iph, struct tcphdr *th)
@@ -334,7 +354,9 @@ aod_out_tcp(const struct aod_profile *p, struct sk_buff *skb,
 	uint16_t win;
 	int optlen, newlen;
 
-	if (p->set_df == AOD_DF_ON)
+	if (iph == NULL)
+		;
+	else if (p->set_df == AOD_DF_ON)
 		iph->frag_off |= htons(IP_DF);
 	else if (p->set_df == AOD_DF_OFF)
 		iph->frag_off &= ~htons(IP_DF);
@@ -342,7 +364,10 @@ aod_out_tcp(const struct aod_profile *p, struct sk_buff *skb,
 	/* T4 and T6 of nmap: Windows leaves something in the ack field */
 	if (p->rst_ack_other && th->rst && !th->ack && !th->syn && !th->fin &&
 	    th->ack_seq == 0) {
-		ack = (__force __be32)get_random_u32() | htonl(0x00010000);
+		if (iph == NULL && p->rst_ack_seq6)
+			ack = th->seq;
+		else
+			ack = (__force __be32)get_random_u32() | htonl(0x00010000);
 		aod_replace(skb, th, (uint8_t *)&th->ack_seq, (uint8_t *)&ack, 4);
 	}
 
@@ -366,7 +391,12 @@ aod_out_tcp(const struct aod_profile *p, struct sk_buff *skb,
 		}
 	}
 
-	win = th->ack ? p->synack_win[o.ts][o.ws] : p->syn_win;
+	if (!th->ack)
+		win = p->syn_win;
+	else if (iph == NULL && p->synack_win6[o.ts][o.ws] != 0)
+		win = p->synack_win6[o.ts][o.ws];
+	else
+		win = p->synack_win[o.ts][o.ws];
 	if (win != 0) {
 		new16 = htons(win);
 		aod_replace(skb, th, (uint8_t *)&th->window, (uint8_t *)&new16, 2);
@@ -569,6 +599,238 @@ aod_hook_in(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 	return (NF_ACCEPT);
 }
 
+/*
+ * IPv6, outbound.  Only TCP that follows the IPv6 header directly is
+ * rewritten.  The hop limit is changed only when the sender left the
+ * default of the route, so neighbour discovery (255) stays as it is.
+ */
+static unsigned int
+aod_hook_out6(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+{
+	struct aod_net *an = aod_pernet(state->net);
+	const struct aod_profile *p;
+	struct ipv6hdr *ip6h;
+	struct tcphdr *th;
+	struct dst_entry *dst;
+	uint8_t hlim;
+	int kind, need;
+
+	kind = READ_ONCE(an->kind);
+	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
+		return (NF_ACCEPT);
+	p = &aod_profiles[kind];
+
+	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+		return (NF_ACCEPT);
+	ip6h = ipv6_hdr(skb);
+	if (ip6h->version != 6 || skb_is_gso(skb))
+		return (NF_ACCEPT);
+	need = sizeof(struct ipv6hdr);
+	if (ip6h->nexthdr == IPPROTO_TCP) {
+		need += sizeof(struct tcphdr);
+		if (skb->len < need || !pskb_may_pull(skb, need))
+			return (NF_ACCEPT);
+		th = (struct tcphdr *)(skb_network_header(skb) +
+		    sizeof(struct ipv6hdr));
+		need = sizeof(struct ipv6hdr) + (th->doff << 2);
+		if (th->doff < 5 || skb->len < need)
+			return (NF_ACCEPT);
+	} else if (ip6h->nexthdr == IPPROTO_ICMPV6) {
+		need += sizeof(struct icmp6hdr);
+		if (skb->len < need || !pskb_may_pull(skb, need))
+			return (NF_ACCEPT);
+	}
+	if (skb_ensure_writable(skb, need) != 0)
+		return (NF_ACCEPT);
+	ip6h = ipv6_hdr(skb);
+
+	dst = skb_dst(skb);
+	hlim = ip6h->nexthdr == IPPROTO_ICMPV6 ? p->icmp_ttl : p->ttl;
+	if (hlim != 0 && dst != NULL && ip6h->hop_limit == ip6_dst_hoplimit(dst))
+		ip6h->hop_limit = hlim;
+
+	if (ip6h->nexthdr == IPPROTO_TCP) {
+		th = (struct tcphdr *)(ip6h + 1);
+		aod_out_tcp(p, skb, NULL, th);
+	} else if (ip6h->nexthdr == IPPROTO_ICMPV6 && p->echo_code0) {
+		struct icmp6hdr *icmp6h = (struct icmp6hdr *)(ip6h + 1);
+		__be16 o, n;
+
+		/* Linux repeats the code of the request; the sum is final */
+		if (icmp6h->icmp6_type == ICMPV6_ECHO_REPLY &&
+		    icmp6h->icmp6_code != 0 &&
+		    skb->ip_summed != CHECKSUM_PARTIAL) {
+			memcpy(&o, icmp6h, 2);
+			icmp6h->icmp6_code = 0;
+			memcpy(&n, icmp6h, 2);
+			csum_replace2(&icmp6h->icmp6_cksum, o, n);
+		}
+	}
+	return (NF_ACCEPT);
+}
+
+/*
+ * Neighbor advertisements do not pass LOCAL_OUT, so this one hook sits at
+ * POST_ROUTING.  Windows answers a solicitation that carries no link-layer
+ * address with the override flag set and its own address attached; Linux
+ * sends neither in that case.
+ */
+static unsigned int
+aod_hook_post6(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+{
+	struct aod_net *an = aod_pernet(state->net);
+	const struct net_device *dev = state->out;
+	struct ipv6hdr *ip6h;
+	struct nd_msg *na;
+	uint8_t *opt;
+	int kind, len;
+
+	kind = READ_ONCE(an->kind);
+	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX ||
+	    !aod_profiles[kind].na_lladdr)
+		return (NF_ACCEPT);
+
+	len = sizeof(*ip6h) + sizeof(*na);
+	if (dev == NULL || dev->addr_len != ETH_ALEN || skb->len != len ||
+	    skb_is_nonlinear(skb) || skb->ip_summed == CHECKSUM_PARTIAL)
+		return (NF_ACCEPT);
+	ip6h = ipv6_hdr(skb);
+	na = (struct nd_msg *)(ip6h + 1);
+	if (ip6h->version != 6 || ip6h->nexthdr != IPPROTO_ICMPV6 ||
+	    ip6h->hop_limit != 255 ||
+	    na->icmph.icmp6_type != NDISC_NEIGHBOUR_ADVERTISEMENT ||
+	    !na->icmph.icmp6_solicited)
+		return (NF_ACCEPT);
+	if (skb_ensure_writable(skb, len) != 0)
+		return (NF_ACCEPT);
+	if (skb_tailroom(skb) < 8 &&
+	    pskb_expand_head(skb, 0, 8, GFP_ATOMIC) != 0)
+		return (NF_ACCEPT);
+	opt = skb_put(skb, 8);
+	opt[0] = ND_OPT_TARGET_LL_ADDR;
+	opt[1] = 1;
+	memcpy(opt + 2, dev->dev_addr, ETH_ALEN);
+	ip6h = ipv6_hdr(skb);
+	na = (struct nd_msg *)(ip6h + 1);
+	na->icmph.icmp6_override = 1;
+	ip6h->payload_len = htons(sizeof(*na) + 8);
+	na->icmph.icmp6_cksum = 0;
+	na->icmph.icmp6_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+	    sizeof(*na) + 8, IPPROTO_ICMPV6,
+	    csum_partial(na, sizeof(*na) + 8, 0));
+	return (NF_ACCEPT);
+}
+
+/* IPv6 version of aod_tcp_reply.  dev is where the probe came in. */
+static void
+aod_tcp_reply6(struct net *net, const struct net_device *dev,
+    const struct ipv6hdr *oip6h, const struct tcphdr *oth, __be32 seq,
+    __be32 ack)
+{
+	struct flowi6 fl6 = {
+		.flowi6_proto = IPPROTO_TCP,
+		.saddr = oip6h->daddr, .daddr = oip6h->saddr,
+		.fl6_sport = oth->dest, .fl6_dport = oth->source,
+	};
+	struct sk_buff *nskb;
+	struct dst_entry *dst;
+	struct ipv6hdr *ip6h;
+	struct tcphdr *th;
+
+	/* a link-local address means nothing without its interface */
+	if (dev != NULL && (ipv6_addr_type(&oip6h->saddr) & IPV6_ADDR_LINKLOCAL))
+		fl6.flowi6_oif = dev->ifindex;
+	dst = ip6_route_output(net, NULL, &fl6);
+	if (dst->error != 0) {
+		dst_release(dst);
+		return;
+	}
+	nskb = alloc_skb(sizeof(*ip6h) + sizeof(*th) + LL_MAX_HEADER, GFP_ATOMIC);
+	if (nskb == NULL) {
+		dst_release(dst);
+		return;
+	}
+	skb_reserve(nskb, LL_MAX_HEADER);
+	skb_dst_set(nskb, dst);
+	nskb->protocol = htons(ETH_P_IPV6);
+
+	skb_reset_network_header(nskb);
+	ip6h = skb_put_zero(nskb, sizeof(*ip6h));
+	ip6_flow_hdr(ip6h, 0, 0);
+	ip6h->hop_limit = ip6_dst_hoplimit(dst);
+	ip6h->nexthdr = IPPROTO_TCP;
+	ip6h->saddr = oip6h->daddr;
+	ip6h->daddr = oip6h->saddr;
+
+	skb_reset_transport_header(nskb);
+	th = skb_put_zero(nskb, sizeof(*th));
+	th->source = oth->dest;
+	th->dest = oth->source;
+	th->seq = seq;
+	th->ack_seq = ack;
+	th->doff = sizeof(*th) >> 2;
+	th->rst = 1;
+	th->ack = 1;
+	th->check = ~tcp_v6_check(sizeof(*th), &ip6h->saddr, &ip6h->daddr, 0);
+	nskb->ip_summed = CHECKSUM_PARTIAL;
+	nskb->csum_start = (unsigned char *)th - nskb->head;
+	nskb->csum_offset = offsetof(struct tcphdr, check);
+
+	ip6_local_out(net, NULL, nskb);	/* passes aod_hook_out6 */
+}
+
+/* IPv6, inbound: the same replies as aod_hook_in. */
+static unsigned int
+aod_hook_in6(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+{
+	struct aod_net *an = aod_pernet(state->net);
+	const struct aod_profile *p;
+	struct ipv6hdr *ip6h;
+	struct tcphdr *th;
+	int kind, tlen;
+
+	kind = READ_ONCE(an->kind);
+	if (kind <= AOD_EMU_FREEBSD || kind > AOD_EMU_MAX)
+		return (NF_ACCEPT);
+	p = &aod_profiles[kind];
+
+	if (skb->pkt_type != PACKET_HOST ||
+	    !pskb_may_pull(skb, sizeof(struct ipv6hdr) + sizeof(struct tcphdr)))
+		return (NF_ACCEPT);
+	ip6h = ipv6_hdr(skb);
+	if (ip6h->version != 6 || ip6h->nexthdr != IPPROTO_TCP)
+		return (NF_ACCEPT);
+	th = (struct tcphdr *)(ip6h + 1);
+
+	if (!th->syn && !th->fin && !th->rst && !th->ack && !th->psh &&
+	    !th->urg && p->null_reply != AOD_NULL_LEAVE) {
+		aod_tcp_reply6(state->net, state->in, ip6h, th,
+		    p->null_reply == AOD_NULL_RSTACK_SEQ ? th->ack_seq : 0,
+		    th->seq);
+		return (NF_DROP);
+	}
+
+	if (p->rst_noack && !th->syn && !th->rst && !th->ack) {
+		tlen = (int)ntohs(ip6h->payload_len) - (th->doff << 2);
+		if (tlen < 0)
+			tlen = 0;
+		if (th->fin)
+			tlen++;
+		aod_tcp_reply6(state->net, state->in, ip6h, th, 0,
+		    htonl(ntohl(th->seq) + tlen));
+		return (NF_DROP);
+	}
+
+	if (th->syn && th->fin && !th->rst && !th->ack) {
+		if (p->synfin_reply == AOD_SYNFIN_RSTACK)
+			aod_tcp_reply6(state->net, state->in, ip6h, th, 0,
+			    htonl(ntohl(th->seq) + 2));
+		if (p->synfin_reply != AOD_SYNFIN_LEAVE)
+			return (NF_DROP);
+	}
+	return (NF_ACCEPT);
+}
+
 static const struct nf_hook_ops aod_hooks[] = {
 	{
 		.hook = aod_hook_out, .pf = NFPROTO_IPV4,
@@ -577,6 +839,18 @@ static const struct nf_hook_ops aod_hooks[] = {
 	{
 		.hook = aod_hook_in, .pf = NFPROTO_IPV4,
 		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP_PRI_FIRST,
+	},
+	{
+		.hook = aod_hook_out6, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_OUT, .priority = NF_IP6_PRI_LAST,
+	},
+	{
+		.hook = aod_hook_in6, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP6_PRI_FIRST,
+	},
+	{
+		.hook = aod_hook_post6, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_POST_ROUTING, .priority = NF_IP6_PRI_LAST,
 	},
 };
 

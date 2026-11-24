@@ -8,6 +8,13 @@ Files ending in `-fp.txt` include the full fingerprint.
 for jails and containers are in `freebsd/jail/results/` and
 `linux/lxc/results/`.
 
+`results/ipv6/` holds the IPv6 scans (`nmap -6 -O`, five per setting, with the
+IPv4 scans taken in the same session): `freebsd/` and `linux/` for the two
+modules on the host, `freebsd-jail/` and `linux-netns/` for a jail and a
+network namespace that each have their own setting, and `windows11-22621/`
+for the real Windows host. The targets were link-local addresses on closed
+test links.
+
 `scripts/` holds the scripts that produced them. They are a record of the
 method, not a portable test suite: they assume a prober at 10.99.0.1, the
 FreeBSD target at 10.99.0.2 on a link that is not forwarded anywhere, and a

@@ -47,6 +47,8 @@ struct aod_profile {
 	int		kind;
 	/* window on SYN|ACK, indexed [has timestamp][has window scale] */
 	uint16_t	synack_win[2][2];
+	/* the same over IPv6; all 0 = use synack_win */
+	uint16_t	synack_win6[2][2];
 	uint16_t	syn_win;	/* advertised window on SYN, 0 = leave */
 	uint8_t		ttl;		/* IP TTL except ICMP, 0 = leave */
 	uint8_t		icmp_ttl;	/* IP TTL for ICMP, 0 = leave */
@@ -64,7 +66,11 @@ struct aod_profile {
 	uint8_t		synfin_reply;	/* AOD_SYNFIN_* */
 	uint8_t		rst_noack;	/* RST|ACK to FIN, PSH or URG without ACK, open port or not */
 	uint8_t		rst_ack_other;	/* nonzero ack field on RST without ACK */
+	uint8_t		rst_ack_seq6;	/* over IPv6 that field repeats the seq field */
 	uint8_t		echo_code0;	/* ICMP echo reply always has code 0 */
+	/* IPv6: a solicited neighbor advertisement always has the override
+	 * flag and the target link-layer address option */
+	uint8_t		na_lladdr;
 };
 
 #endif /* _AOD_H_ */
