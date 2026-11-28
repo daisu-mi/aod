@@ -88,11 +88,15 @@ this source, before and after their setting, over IPv4 and IPv6
 (`test/results/rescan-2026-11-28/`).
 
 Values 1 to 5 are the personalities of the 2001 version (FreeBSD, NetBSD,
-Windows, Windows 2000, Cisco). They are kept for reference. In five scans of
-each, Nmap 7.98 reported no exact match
-(`test/results/personalities-2001/`). This module does not reproduce the
-sequence number generators of the 2001 patch; whether that is the reason was
-not tested.
+Windows, Windows 2000, Cisco). They are kept for reference, and only in part:
+1 passes packets unchanged; for 2 to 5 the module sets the TTL, the DF bit,
+the IP ID step, fixed SYN and SYN/ACK windows, the reply to a segment without
+flags and, where the 2001 source has them, the SYN+FIN drop and echo reply
+code 0. It leaves out the sequence number generators, the TCP option changes,
+the further window rules, the replies to FIN, PSH and URG segments and the
+other UDP and ICMP changes of the 2001 source. In five IPv4 scans of each,
+Nmap 7.98 reported no exact match (`test/results/personalities-2001/`);
+which of these omissions, if any, is the reason was not tested.
 
 ## Build and use
 
