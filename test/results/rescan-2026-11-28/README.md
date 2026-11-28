@@ -15,8 +15,14 @@ settings read on the target machine just before the scan.
 | `freebsd-jail/` | jail `j2`, 10.99.0.18 | 0, then 6 | 0: 5 IPv4, 5 IPv6; 6: 10 IPv4, 5 IPv6 |
 | `linux-netns/` | namespace `c1`, 10.99.0.26 | 0, then 8 | 0: 5 IPv4, 5 IPv6; 8: 10 IPv4, 5 IPv6 |
 | `linux-netns/` | its host, 10.99.0.22 | 0 | 5 IPv4 and 5 IPv6, before and after the namespace was set |
+| `freebsd-host/` | FreeBSD host, link-local address | 0, 6, 7, 8 | 5 IPv6 each |
 
-The host of the jails was at setting 7 throughout and was not scanned. The
+The host of the jails was at setting 7 throughout the jail scans and was not
+scanned then. It was scanned afterwards, on 29 November 2026 (01:49 JST, which
+is 28 November 16:49 UTC), over IPv6 at settings 0, 6, 7 and 8, five scans each
+(`freebsd-host/`); these files start with the command and the setting read
+before the scan, and `environment.txt` gives the checksums and file times of
+the source and the module file. The
 namespace reaches the link through a macvlan interface on the guest's test
 interface. The LXC container of `linux/lxc/` was not scanned again.
 
