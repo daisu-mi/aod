@@ -1,0 +1,11 @@
+== date
+Sat Nov 28 02:16:10 PM UTC 2026
+== nmap
+Nmap version 7.98 ( https://nmap.org )
+c81d4b9c73d73cff4a03f7bbe0caa7a9909152a431d26914fdbcfb30393fa760  /usr/share/nmap/nmap-os-db
+== guest
+7.0.0-43-generic
+cc84ab753f7a209636778e2384ab161fef5660ee761c715030a3b0711dc6f97a  /home/ubuntu/aod-released/linux/aod_linux.c
+090615328ac73283bdf157cac298f0954fabbfaff655c3f150f589839a35b7b9  /home/ubuntu/aod-released/common/aod.h
+9374ee37d1bac8061ea2af84f8bf520149ecdfd909fbeb09c5415b38d72205bb  /home/ubuntu/aod-released/linux/aod_linux.ko
+aod_linux              24576  0

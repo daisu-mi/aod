@@ -1,0 +1,8 @@
+epair1a
+epair2a
+j1 fe80::5a9c:fcff:fe10:80b4  j2 fe80::5a9c:fcff:fe10:e838
+net.inet.tcp.emu_kind: 0 -> 0
+net.inet.tcp.emu_kind: 0 -> 0
+net.inet.tcp.emu_kind: 0 -> 8
+net.inet.tcp.emu_kind: 0 -> 6
+finished

@@ -1,0 +1,34 @@
+# command: nmap -O -n -Pn -p 22,23 --osscan-guess 10.99.0.14
+# settings read before the scan: host 7, j1 0
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-28 23:08 +0900
+Nmap scan report for 10.99.0.14
+Host is up (0.00019s latency).
+
+PORT   STATE  SERVICE
+22/tcp open   ssh
+23/tcp closed telnet
+MAC Address: 58:9C:FC:10:80:B4 (FreeBSD Foundation)
+Device type: general purpose|storage-misc|game console
+Running (JUST GUESSING): FreeBSD 12.X|13.X|11.X (95%), iXsystems TrueNAS 12.X|13.X (92%), Sony embedded (92%), NetApp Data ONTAP 9.X (92%)
+OS CPE: cpe:/o:freebsd:freebsd:12 cpe:/o:freebsd:freebsd:13 cpe:/o:ixsystems:truenas:12 cpe:/o:ixsystems:truenas:13 cpe:/o:freebsd:freebsd:11 cpe:/o:freebsd:freebsd:11.0 cpe:/o:netapp:data_ontap:9
+Aggressive OS guesses: FreeBSD 12.0-RELEASE - 13.0-RELEASE (95%), FreeBSD 12.2-RELEASE - 12.3-RELEASE (95%), FreeBSD 13.0-STABLE (94%), FreeBSD 12.2-RELEASE - 13.0-RELEASE (93%), TrueNAS 12.0 - 13.0 (FreeBSD 12.2-RELEASE - 13.1-RELEASE) (92%), FreeBSD 11.2-RELEASE - 11.3 RELEASE (92%), FreeBSD 11.3-RELEASE (92%), Sony PS5 (FreeBSD 11.0) (92%), NetApp Release 9.7 - 9.8 (92%), FreeBSD 11.0-RELEASE - 12.0-CURRENT (92%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/28%OT=22%CT=23%CU=44335%PV=Y%DS=1%DC=D%G=Y%M=589CFC
+OS:%TM=6B0AE07B%P=x86_64-pc-linux-gnu)SEQ(SP=101%GCD=1%ISR=109%TI=Z%CI=Z%II
+OS:=I%TS=21)SEQ(SP=102%GCD=1%ISR=106%TI=Z%CI=Z%II=RI%TS=21)SEQ(SP=102%GCD=1
+OS:%ISR=109%TI=Z%CI=Z%II=I%TS=21)SEQ(SP=104%GCD=1%ISR=108%TI=Z%CI=Z%II=I%TS
+OS:=21)SEQ(SP=104%GCD=1%ISR=10E%TI=Z%CI=Z%II=I%TS=21)OPS(O1=M5B4NW8ST11%O2=
+OS:M5B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WI
+OS:N(W1=FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=Y%T=40%W=FF
+OS:FF%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3
+OS:(R=Y%DF=Y%T=40%W=FFFF%S=O%A=S+%F=AS%O=M5B4NW8ST11%RD=0%Q=)T4(R=Y%DF=Y%T=
+OS:40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0
+OS:%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=40%W=0%S=Z
+OS:%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G
+OS:%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.36 seconds

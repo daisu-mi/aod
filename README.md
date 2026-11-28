@@ -26,7 +26,7 @@ With the module loaded and a personality selected, the tools report:
 
 | `net.inet.tcp.emu_kind` | Personality | Nmap 7.98 `-O` | p0f 3.09b (outbound SYN) |
 |---|---|---|---|
-| 0 | off | no exact match (guesses FreeBSD 12–13) | FreeBSD |
+| 0 | off | no exact match (first guess Android 4.0, 93%; then FreeBSD 12–13, 92%) | FreeBSD |
 | 6 | Linux, as in the Nmap database | exact: Linux 4.15 – 5.19, usually with other Linux-based entries (see below) | Linux 2.2.x-3.x |
 | 7 | Linux, as measured on Ubuntu 26.04.1 | no exact match; best guess Linux 4.15 – 5.19 (97%) | Linux 2.2.x-3.x |
 | 8 | Windows 11 | exact: Microsoft Windows 10 1703 or Windows 11 21H2 | Windows NT kernel |
@@ -37,15 +37,17 @@ Each personality was compared with a real host on the same test network:
   real host the same result. In the Nmap fingerprints every test line from OPS
   to IE is identical; the SEQ line differs only in two measured values that
   also vary between runs of the same host.
-- **Ubuntu 26.04.1** (Linux 7.0). Nmap does not recognize the real host: its
-  database ends at Linux 6.0. Personality 7 gets the same non-match, with the
-  same list of guesses. Personality 6 follows the database instead and is an
-  exact match. Pick 6 to satisfy the tool, 7 to look like a current machine.
-  With 6, Nmap lists every database entry the fingerprint satisfies. Linux
-  4.15 – 5.19 is always first. In most runs OpenWrt 21.02 (Linux 5.4) follows,
-  and often MikroTik RouterOS 7.2 – 7.5 (Linux 5.6.3) as well; both are Linux
-  systems. The fingerprints of these runs differ only in two measured values
-  of the SEQ line. `test/results/kind6-rerun/` holds six such runs.
+- **Ubuntu 26.04.1** (Linux 7.0). Nmap reports no exact match for the real
+  host. No entry of its database names Linux 7; the newest kernel that an
+  entry name gives is 6.2 ("Linux 5.0 - 6.2"). Personality 7 gets the same
+  non-match, with the same list of guesses. Personality 6 follows the database
+  entry "Linux 6.0" instead and is an exact match. Pick 6 to satisfy the
+  tool, 7 to look like a current machine.
+  With 6, Nmap can list several database entries for one exact match. Linux
+  4.15 – 5.19 is always first. Of the 13 scans of the host with personality 6
+  under `test/results/`, ten also list OpenWrt 21.02 (Linux 5.4) and MikroTik
+  RouterOS 7.2 – 7.5 (Linux 5.6.3), two only OpenWrt, and one neither; both
+  are Linux-based. `test/results/kind6-rerun/` holds six of these scans.
 
 With personality 8, FIN, NULL and Xmas scans show every port as closed, as they
 do against Windows. SYN and connect scans show the true state with every
@@ -54,32 +56,43 @@ personality.
 ### IPv6
 
 Both modules also work on IPv6. Nmap identifies IPv6 hosts with a separate
-classifier whose known systems are older than those of its IPv4 database, so
-the names differ from the table above. Each row is five scans with
+classifier, and the labels it gave here name older systems than those of the
+table above. Each row is five scans with
 `nmap -6 -O`; all five gave the same verdict.
 
 | Target | Personality | Nmap 7.98 `-6 -O` |
 |---|---|---|
 | FreeBSD 15.1 with the module | 0, off | no match (guess: FreeBSD 12, 91%) |
-| | 6, Linux | exact: Linux 4.19 |
+| | 6, Linux (database) | exact: Linux 4.19 |
+| | 7, Linux (as measured) | exact: Linux 4.19 |
 | | 8, Windows 11 | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
 | Ubuntu 26.04.1 with the module | 0, off | exact: Linux 4.19 |
 | | 8, Windows 11 | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
 | a real Windows 11 (build 22621) | | exact: Microsoft Windows Vista, Windows 7 SP1, Windows Server 2008 R2 or Windows 8.1 |
 
-Personality 8 gets the verdict that the real Windows 11 gets, and personality
-6 on FreeBSD gets the verdict of the real Linux host. Before the IPv6 hooks
-were added, a FreeBSD host set to 8 was still reported as FreeBSD over IPv6
-while it was reported as Windows over IPv4.
+Personality 8 gets the label that the real Windows 11 gets, and personalities
+6 and 7 on FreeBSD get the label of the real Linux host. "Exact" means that
+Nmap printed the label without marking it as a guess; it does not mean that
+the replies are identical. The replies of 6 and 7 still differ from those of
+the Ubuntu host in fields that Nmap records (SYN/ACK window, the reply to an
+echo request with a nonzero code, flow label). Before the IPv6 hooks
+were added, a FreeBSD host set to 8 was, in one scan, still guessed to be
+FreeBSD over IPv6 (FreeBSD 12.X, 91%) while it was reported as Windows over
+IPv4.
 
 A jail with its own network stack (FreeBSD) and a network namespace (Linux)
 keep their own personality over IPv6 as well. The IPv4 verdicts did not
-change. The raw output is in `test/results/ipv6/`.
+change. The raw output is in `test/results/ipv6/`. Two jails and a Linux network
+namespace were scanned again on 28 November 2026 with the modules built from
+this source, before and after their setting, over IPv4 and IPv6
+(`test/results/rescan-2026-11-28/`).
 
 Values 1 to 5 are the personalities of the 2001 version (FreeBSD, NetBSD,
-Windows, Windows 2000, Cisco). They are kept for reference and do not match
-anything in a current Nmap database: those systems generated initial sequence
-numbers in recognizable ways, and this module does not change sequence numbers.
+Windows, Windows 2000, Cisco). They are kept for reference. In five scans of
+each, Nmap 7.98 reported no exact match
+(`test/results/personalities-2001/`). This module does not reproduce the
+sequence number generators of the 2001 patch; whether that is the reason was
+not tested.
 
 ## Build and use
 
@@ -94,8 +107,8 @@ sysctl net.inet.tcp.emu_kind=8
 
 To stop: `sysctl net.inet.tcp.emu_kind=0`, then `kldunload aod`.
 
-While a personality is active the module turns off per-connection TCP timestamp
-offsets (`net.inet.tcp.ts_offset_per_conn`). The previous value is restored
+While personality 6 or 8 is active the module turns off per-connection TCP
+timestamp offsets (`net.inet.tcp.ts_offset_per_conn`). The previous value is restored
 when the personality is switched off or the module is unloaded.
 
 The setting is kept per network stack. A jail with its own stack can have a
@@ -149,8 +162,10 @@ The module keeps no per-connection state.
 ## Cost
 
 Measured in a QEMU/KVM guest (8 vCPU) against the host over a virtual link;
-medians of five rounds. Differences below about ten percent are not resolved by
-this setup.
+medians of five rounds, over IPv4, on the build of 21 November 2026, before
+the IPv6 hooks were added. In the sending direction the five rounds of one
+condition span 10 to 18 percent of their median, so smaller differences are
+not resolved by this setup.
 
 | Condition | receive Gbit/s | send Gbit/s | connections/s |
 |---|---|---|---|
@@ -161,24 +176,31 @@ this setup.
 | 8 Windows 11 | 2.51 | 16.28 | 16747 |
 
 An earlier Windows variant that used no TCP timestamps at all sent about 9%
-slower with TSO and LRO disabled. The same drop appears without the module when
-timestamps are disabled in the stock kernel, so it comes from running without
-timestamps, not from the module. Personality 8 does without timestamps only on
-the connections the host opens.
+slower with TSO and LRO disabled. Without the module, with timestamps
+disabled in the stock kernel, sending was slower as well, which points to the
+missing timestamps and not only to the module's work; the two contributions
+were not separated. Personality 8 does without timestamps only on
+the connections the host opens, and their cost was not measured.
 
 ## Limitations
 
-- Only the first packets of a connection are shaped. Retransmission timing,
+- Windows and options are shaped only on SYN and SYN/ACK segments. The TTL
+  (or hop limit) and the IP ID are also set on later packets, but IPv4
+  fragments and TSO bursts pass unchanged. Retransmission timing,
   congestion behaviour and everything above TCP remain FreeBSD's.
 - Initial sequence numbers are not changed.
-- IP IDs come from one counter; a real Linux host numbers each connection
-  separately, which shows after the handshake.
-- Over IPv6 only TCP that follows the IPv6 header directly is shaped; packets
-  with extension headers are left alone. Personality 7 and the 2001
-  personalities were not measured over IPv6, and no passive tool was tried.
+- IP IDs come from one counter per network stack. Across three connections
+  the IDs of the Linux personalities ran on from one connection to the next,
+  and those of the Ubuntu host did not; how Linux assigns them was not
+  examined.
+- Over IPv6, TCP is shaped only when its header follows the IPv6 header
+  directly. The 2001 personalities were not scanned over IPv6, and Nmap was
+  the only tool run there; no passive tool was tried and the cost was not
+  measured again.
 - The window scale can be lowered, not raised.
-- The comparison with real hosts covers one Linux and one Windows machine. On
-  Linux the window scale depends on the amount of memory.
+- The comparison with real hosts covers one Windows 11 guest and two Ubuntu
+  26.04.1 guests with the same kernel version. The window scale of a Linux
+  host is not fixed: the 2 GB guests advertised 8 and the scanning host 10.
 - The personality is fixed until changed by hand.
 - A tool that looks beyond the fields listed above can tell the difference.
 
@@ -227,5 +249,5 @@ FreeBSD 15.1 で読み込めるカーネルモジュールに作り直したも�
 - `sysctl net.inet.tcp.emu_kind=6` と `7` で Linux、`8` で Windows 11 に見せます。`0` で切ります。
 - 6 は nmap のデータベースに合わせた Linux、7 は本物の Ubuntu 26.04.1 に合わせた Linux です。
 - 8 は、本物の Windows 11 と nmap、p0f、JA4T で同じ結果になることを確かめています。
-- IPv6 にも対応しています。nmap の IPv6 の判定で、8 は本物の Windows 11 と同じ判定、FreeBSD 上の 6 は本物の Linux と同じ判定になります。
+- IPv6 にも対応しています。nmap の IPv6 の判定で、8 は本物の Windows 11 と同じ判定、FreeBSD 上の 6 と 7 は本物の Linux と同じ判定になります。判定が同じというだけで、返事の中身がすべて同じではありません。
 - 研究と防御のための道具です。まず仮想マシンで試してください。

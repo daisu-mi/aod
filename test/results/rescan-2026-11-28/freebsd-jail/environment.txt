@@ -1,0 +1,11 @@
+== date
+Sat Nov 28 02:07:56 PM UTC 2026
+== nmap
+Nmap version 7.98 ( https://nmap.org )
+c81d4b9c73d73cff4a03f7bbe0caa7a9909152a431d26914fdbcfb30393fa760  /usr/share/nmap/nmap-os-db
+== guest
+15.1-RELEASE-p7
+SHA256 (/root/aod/aod.c) = 7154d40bc72dd9371e786c33e2c2e80eed3b63a5b5d540dcc454a594101395f8
+SHA256 (/root/aod/aod.h) = 090615328ac73283bdf157cac298f0954fabbfaff655c3f150f589839a35b7b9
+SHA256 (/root/aod/aod.ko) = 748915e6c0d8fc275e7f38e74581c052462c6951c9b1825e8baedc8b45a22e3d
+ 4    1 0xffffffff82c1f000     32c8 aod.ko

@@ -1,0 +1,10 @@
+Error: An interface with the same name exists in the target netns.
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+mv1@if3          UP             10.99.0.26/30 fe80::c07e:96ff:fee9:52d3/64 
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port
+LISTEN 0      128          0.0.0.0:22        0.0.0.0:*   
+LISTEN 0      128             [::]:22           [::]:*   
+c1 fe80::c07e:96ff:fee9:52d3 host fe80::5054:ff:fea0:d022
+net.ipv4.tcp_emu_kind = 0
+net.ipv4.tcp_emu_kind = 8
+finished
