@@ -48,7 +48,7 @@ Nmap 7.98, `-O`, from a prober on the same closed link.
 
 | Target | `emu_kind` | Nmap verdict |
 |---|---|---|
-| host, 10.99.0.2 | 0 | no exact match (guesses FreeBSD 12–13) |
+| host, 10.99.0.2 | 0 | no exact match (first guess Android 4.0.1 – 4.0.4 (Linux 3.0), 93%; second FreeBSD 12.0-RELEASE – 13.0-RELEASE, 92%; so in `results/scan1-10.99.0.2.txt` and in all ten scans of `results/ten-scans/`. In `results/scan3-10.99.0.2.txt` FreeBSD 12.0-RELEASE – 13.0-RELEASE is first, 95%) |
 | jail, 10.99.0.14 | 8 | exact: Microsoft Windows 10 1703 or Windows 11 21H2 |
 | jail, 10.99.0.18 | 6 | exact: Linux 4.15 – 5.19, with OpenWrt 21.02 and MikroTik RouterOS 7 (both Linux-based) also listed |
 

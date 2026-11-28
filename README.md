@@ -56,8 +56,8 @@ personality.
 ### IPv6
 
 Both modules also work on IPv6. Nmap identifies IPv6 hosts with a separate
-classifier, and the labels it gave here name older systems than those of the
-table above. Each row is five scans with
+classifier, and its labels differ from those of the table above; the Windows
+label names older systems. Each row is five scans with
 `nmap -6 -O`; all five gave the same verdict.
 
 | Target | Personality | Nmap 7.98 `-6 -O` |
@@ -147,9 +147,9 @@ The module keeps no per-connection state.
 - Outbound: TTL, DF, IP ID, the window of SYN and SYN/ACK, the order of TCP
   options, the timestamp option of the host's own SYN, the window scale value,
   the acknowledgment field of a bare RST, the code of an ICMP echo reply.
-- Inbound: clears the ECN bits of a SYN, and answers by itself the segments
-  that the imitated system treats differently (no flags, SYN+FIN, FIN without
-  ACK).
+- Inbound: clears the ECN bits of a SYN, and answers or drops by itself some segments
+  that the imitated system treats differently (for example no flags, or FIN,
+  PSH or URG without ACK).
 - IPv6: the hop limit takes the place of the TTL, and the TCP handling is the
   same code. Four things were added for personality 8 after comparing with
   the real Windows 11: the window of a SYN/ACK is rounded to the IPv6 minimum
@@ -164,7 +164,7 @@ The module keeps no per-connection state.
 Measured in a QEMU/KVM guest (8 vCPU) against the host over a virtual link;
 medians of five rounds, over IPv4, on the build of 21 November 2026, before
 the IPv6 hooks were added. In the sending direction the five rounds of one
-condition span 10 to 18 percent of their median, so smaller differences are
+condition span about 10 to 18 percent of their median, so smaller differences are
 not resolved by this setup.
 
 | Condition | receive Gbit/s | send Gbit/s | connections/s |
