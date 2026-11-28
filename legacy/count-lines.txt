@@ -1,0 +1,33 @@
+aod-freebsd43.patch: files 9, added 224, added not blank 206, removed 9
+  new file date: conf/options  Tue May 22 01:28:11 2001
+  new file date: netinet/ip_output.c  Thu May 24 09:45:44 2001
+  new file date: netinet/tcp_input.c  Wed May 23 19:08:06 2001
+  new file date: netinet/tcp_output.c  Wed May 23 05:42:13 2001
+  new file date: netinet/tcp_seq.h  Wed May 23 06:17:54 2001
+  new file date: netinet/tcp_subr.c  Thu May 24 09:36:45 2001
+  new file date: netinet/tcp_usrreq.c  Wed May 23 19:08:34 2001
+  new file date: netinet/tcp_var.h  Wed May 23 06:31:44 2001
+  new file date: netinet/udp_usrreq.c  Tue May 22 20:19:36 2001
+aod.patch: files 10, added 513, added not blank 470, removed 9
+  new file date: netinet/ip_output.c  Mon Sep  3 20:59:01 2001
+  new file date: netinet/tcp_input.c  Tue Sep  4 03:50:21 2001
+  new file date: netinet/tcp_output.c  Tue Sep  4 13:40:19 2001
+  new file date: netinet/tcp_seq.h  Tue May 29 04:20:05 2001
+  new file date: netinet/tcp_subr.c  Mon Sep  3 21:06:51 2001
+  new file date: netinet/tcp_timer.c  Thu Jun 14 07:09:17 2001
+  new file date: netinet/tcp_usrreq.c  Thu Aug 30 14:19:35 2001
+  new file date: netinet/tcp_var.h  Tue Sep  4 03:13:58 2001
+  new file date: netinet/udp_usrreq.c  Mon Sep  3 21:19:32 2001
+  new file date: conf/options  Tue May 29 04:20:05 2001
+src/netinet/ip_fil.c against src/netinet/ip_fil.c.orig: added 0, added not blank 0, removed 0
+src/netinet/ip_icmp.c against src/netinet/ip_icmp.c.orig: added 30, added not blank 26, removed 0
+src/netinet/ip_output.c against src/netinet/ip_output.c.orig: added 100, added not blank 91, removed 0
+src/netinet/tcp_input.c against src/netinet/tcp_input.c.orig: added 174, added not blank 159, removed 3
+src/netinet/tcp_output.c against src/netinet/tcp_output.c.orig: added 177, added not blank 166, removed 1
+src/netinet/tcp_seq.h against src/netinet/tcp_seq.h.orig: added 8, added not blank 6, removed 1
+src/netinet/tcp_subr.c against src/netinet/tcp_subr.c.orig: added 146, added not blank 130, removed 2
+src/netinet/tcp_timer.c against src/netinet/tcp_timer.c.orig: added 17, added not blank 16, removed 0
+src/netinet/tcp_usrreq.c against src/netinet/tcp_usrreq.c.orig: added 28, added not blank 28, removed 2
+src/netinet/tcp_var.h against src/netinet/tcp_var.h.orig: added 14, added not blank 13, removed 0
+src/netinet/udp_usrreq.c against src/netinet/udp_usrreq.c.orig: added 40, added not blank 33, removed 1
+src/ against its .orig copies: files that differ 10, added 734, added not blank 668, removed 10

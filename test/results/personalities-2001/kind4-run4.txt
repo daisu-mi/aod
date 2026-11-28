@@ -1,0 +1,29 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-25 13:04 +0900
+Nmap scan report for 10.99.0.2
+Host is up (0.00014s latency).
+
+PORT   STATE  SERVICE
+22/tcp open   ssh
+23/tcp closed telnet
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+Aggressive OS guesses: Microsoft Windows Server 2016 (92%), Microsoft Windows Server 2012 or Server 2012 R2 (91%), Microsoft Windows Server 2022 (90%), Microsoft Windows Server 2012 or 2012 R2 (90%), Microsoft Windows Server 2012 R2 Update 1 (90%), Microsoft Windows Server 2016 or Server 2019 (90%), Microsoft Windows 7, Windows Server 2012, or Windows 8.1 Update 1 (90%), Microsoft Windows 10 (89%), Microsoft Windows 10 1703 (89%), Microsoft Windows 7 or Windows Server 2008 R2 or Windows 8.1 (89%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/25%OT=22%CT=23%CU=38626%PV=Y%DS=1%DC=D%G=Y%M=525400
+OS:%TM=6B065E44%P=x86_64-pc-linux-gnu)SEQ(SP=100%GCD=1%ISR=108%TI=I%CI=I%II
+OS:=I%SS=S%TS=21)SEQ(SP=103%GCD=1%ISR=108%TI=I%CI=I%II=I%SS=S%TS=1E)SEQ(SP=
+OS:107%GCD=1%ISR=10C%TI=I%CI=I%II=I%SS=S%TS=21)SEQ(SP=107%GCD=1%ISR=10E%TI=
+OS:I%CI=I%II=I%SS=S%TS=21)SEQ(SP=FF%GCD=1%ISR=109%TI=I%CI=I%II=I%SS=S%TS=22
+OS:)OPS(O1=M5B4NW8ST11%O2=M5B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW8ST11%O5=M5B
+OS:4NW8ST11%O6=M5B4ST11)WIN(W1=402E%W2=402E%W3=402E%W4=402E%W5=402E%W6=402E
+OS:)ECN(R=Y%DF=Y%T=80%W=402E%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=Y%T=80%S=O%A=S+
+OS:%F=AS%RD=0%Q=)T2(R=Y%DF=Y%T=80%W=0%S=A%A=S%F=AR%O=%RD=0%Q=)T3(R=N)T4(R=Y
+OS:%DF=Y%T=80%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR
+OS:%O=%RD=0%Q=)T6(R=Y%DF=Y%T=80%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=80
+OS:%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=80%IPL=164%UN=0%RIPL=G%RID=G
+OS:%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=80%CD=Z)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.35 seconds

@@ -1,0 +1,30 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-25 13:04 +0900
+Nmap scan report for 10.99.0.2
+Host is up (0.00015s latency).
+
+PORT   STATE  SERVICE
+22/tcp open   ssh
+23/tcp closed telnet
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+Aggressive OS guesses: Sitecom WL-174 wireless ADSL router or ZyXEL B-3000 WAP (86%), GNU Hurd 0.3 (85%), Cisco ATA 188 VoIP adapter (85%), Cisco 2950 switch (IOS 12.1) (85%), Huawei SmartAX MT800u-T ADSL router, NexStor Nexsan ATABoy2x NAS device, ZyXEL ES-4024A switch, or ZyXEL Prestige 650HW or 660HW ADSL router (85%)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/25%OT=22%CT=23%CU=44658%PV=Y%DS=1%DC=D%G=Y%M=525400
+OS:%TM=6B065E5A%P=x86_64-pc-linux-gnu)SEQ(SP=103%GCD=1%ISR=10F%TI=Z%CI=I%II
+OS:=I%TS=21)SEQ(SP=105%GCD=1%ISR=10B%TI=Z%CI=I%II=I%TS=22)SEQ(SP=106%GCD=1%
+OS:ISR=107%TI=Z%CI=I%II=I%TS=22)SEQ(SP=107%GCD=1%ISR=10B%TI=Z%CI=I%II=I%TS=
+OS:21)SEQ(SP=108%GCD=1%ISR=10B%TI=Z%CI=I%II=I%TS=22)OPS(O1=M5B4NW8ST11%O2=M
+OS:5B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B4NW8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WIN
+OS:(W1=1020%W2=1020%W3=1020%W4=1020%W5=1020%W6=1020)ECN(R=Y%DF=N%T=FF%W=102
+OS:0%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=N%T=FF%S=O%A=S+%F=AS%RD=0%Q=)T2(R=Y%DF=
+OS:N%T=FF%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)T3(R=Y%DF=N%T=FF%W=1020%S=O%A=S+%F=AS
+OS:%O=M5B4NW8ST11%RD=0%Q=)T4(R=Y%DF=N%T=FF%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=
+OS:Y%DF=N%T=FF%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=N%T=FF%W=0%S=A%A=Z%F=
+OS:R%O=%RD=0%Q=)T7(R=Y%DF=N%T=FF%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T
+OS:=FF%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=FF%CD=
+OS:S)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.71 seconds

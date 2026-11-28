@@ -1,0 +1,21 @@
+The database file counted by tally.py for tally-nmap-7.98.txt
+==============================================================
+
+Read on 2026-11-27 on the scanning host (the machine that ran Nmap), with
+`sha256sum /usr/share/nmap/nmap-os-db` and `dpkg-query -W nmap nmap-common`:
+
+c81d4b9c73d73cff4a03f7bbe0caa7a9909152a431d26914fdbcfb30393fa760  /usr/share/nmap/nmap-os-db
+
+size 5306593 bytes
+package that owns the file (dpkg -S): nmap-common 7.98+dfsg-1
+package nmap: 7.98+dfsg-1
+
+On the same day `tally.py` was run on this file and its output was
+byte-for-byte the same as tally-nmap-7.98.txt (cmp).
+
+Limits
+- The database file itself is not in the repository.
+- The checksum was taken after the scans, not when they were made. The stored
+  scan outputs name the Nmap version in their first line ("Starting Nmap
+  7.98") and do not name the database file that Nmap loaded, so the link
+  between this file and the stored scans is the installed package only.

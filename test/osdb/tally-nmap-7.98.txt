@@ -1,0 +1,11 @@
+6036 fingerprints in /usr/share/nmap/nmap-os-db
+Windows 95/98/Me: 34 fingerprints; TI {'BI': 29, 'BI|RI': 1, 'BI|RD': 1, 'I': 3}; SP upper bound below 0x80 in 30 of 34
+Windows NT: 27 fingerprints; TI {'BI': 21, 'I': 1, '(none)': 2, 'RD': 2, 'BI|RI': 1}; SP upper bound below 0x80 in 12 of 24
+Windows 2000: 97 fingerprints; TI {'I': 89, '(none)': 7, 'BI': 1}; SP upper bound below 0x80 in 1 of 97
+Windows XP: 287 fingerprints; TI {'I': 250, '(none)': 28, 'RD': 3, 'Z': 1, 'I|RD': 5}; SP upper bound below 0x80 in 1 of 285
+Windows 7: 87 fingerprints; TI {'I': 74, 'RD': 3, '(none)': 5, 'I|RD': 5}; SP upper bound below 0x80 in 0 of 87
+Windows 10/11/2016/2019/2022: 96 fingerprints; TI {'I': 89, 'I|RD': 6, 'RD': 1}; SP upper bound below 0x80 in 0 of 96
+Linux 2.0.X/2.2.X: 14 fingerprints; TI {'I': 13, 'I|RD': 1}; SP upper bound below 0x80 in 0 of 14
+Linux 5.X/6.X: 63 fingerprints; TI {'Z': 60, '(none)': 2, 'RD': 1}; SP upper bound below 0x80 in 0 of 63
+FreeBSD 4.X: 19 fingerprints; TI {'I': 14, '(none)': 2, 'RD': 3}; SP upper bound below 0x80 in 0 of 18
+FreeBSD 12.X/13.X/14.X: 23 fingerprints; TI {'Z': 20, 'I': 2, 'I|RD': 1}; SP upper bound below 0x80 in 0 of 23

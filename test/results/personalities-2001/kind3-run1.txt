@@ -1,0 +1,29 @@
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-11-25 13:02 +0900
+Nmap scan report for 10.99.0.2
+Host is up (0.00014s latency).
+
+PORT   STATE  SERVICE
+22/tcp open   ssh
+23/tcp closed telnet
+MAC Address: 52:54:00:A0:D0:02 (QEMU virtual NIC)
+No OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.98%E=4%D=11/25%OT=22%CT=23%CU=33137%PV=Y%DS=1%DC=D%G=Y%M=525400
+OS:%TM=6B065DF0%P=x86_64-pc-linux-gnu)SEQ(SP=100%GCD=1%ISR=104%TI=BI%CI=BI%
+OS:II=BI%SS=S%TS=22)SEQ(SP=102%GCD=1%ISR=10F%TI=BI%CI=BI%II=BI%SS=S%TS=21)S
+OS:EQ(SP=104%GCD=1%ISR=105%TI=BI%CI=BI%II=BI%SS=S%TS=21)SEQ(SP=104%GCD=1%IS
+OS:R=109%TI=BI%CI=BI%II=BI%SS=S%TS=21)SEQ(SP=FB%GCD=1%ISR=10C%TI=BI%CI=BI%I
+OS:I=BI%SS=S%TS=22)OPS(O1=M5B4NW8ST11%O2=M5B4NW8ST11%O3=M5B4NW8NNT11%O4=M5B
+OS:4NW8ST11%O5=M5B4NW8ST11%O6=M5B4ST11)WIN(W1=2017%W2=2017%W3=2017%W4=2017%
+OS:W5=2017%W6=2017)ECN(R=Y%DF=Y%T=80%W=2017%O=M5B4NW8SLL%CC=Y%Q=)T1(R=Y%DF=
+OS:Y%T=80%S=O%A=S+%F=AS%RD=0%Q=)T2(R=Y%DF=Y%T=80%W=0%S=A%A=S%F=AR%O=%RD=0%Q
+OS:=)T3(R=Y%DF=Y%T=80%W=2017%S=O%A=S+%F=AS%O=M5B4NW8ST11%RD=0%Q=)T4(R=Y%DF=
+OS:Y%T=80%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=80%W=0%S=Z%A=S+%F=AR%O=%
+OS:RD=0%Q=)T6(R=Y%DF=Y%T=80%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=80%W=0
+OS:%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=80%IPL=164%UN=0%RIPL=G%RID=G%RIP
+OS:CK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=80%CD=Z)
+
+Network Distance: 1 hop
+
+OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.68 seconds
